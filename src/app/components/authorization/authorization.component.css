@@ -1,33 +1,97 @@
-button {
-    background-color: #4CAF50; /* Green */
-    border: none;
-    color: white;
-    padding: 15px 32px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    margin: 4px 2px;
-    cursor: pointer;
-    background-color: #008CBA;
-    border-radius: 8px;
-    min-width: 13%;
-    width: 50%;
-  }
-  .auth-con {
-    border-radius: 12px;
-    background: white;
-    width: 14%;
-   
-    /* display: table-cell; */
-    text-align: center;
-    margin: auto;
-    
-    padding: 30px;
+.out-auth-con {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #032d60 0%, #0070d2 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
 }
 
-.out-auth-con {
-  background: cadetblue;
-    min-height: 10000px;
-    padding-top: 130px;
+.login-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+}
+
+.auth-con {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    padding: 40px 48px;
+    text-align: center;
+    width: 300px;
+}
+
+.sf-logo {
+    margin-bottom: 16px;
+}
+
+h1 {
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: #032d60;
+    margin: 0 0 28px;
+}
+
+button {
+    display: block;
+    width: 100%;
+    padding: 12px 0;
+    font-size: 15px;
+    font-family: 'Segoe UI', sans-serif;
+    font-weight: 500;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+.btn-production {
+    background-color: #0070d2;
+    color: white;
+    margin-bottom: 12px;
+}
+
+.btn-production:hover {
+    background-color: #005fb2;
+}
+
+.btn-sandbox {
+    background-color: white;
+    color: #0070d2;
+    border: 2px solid #0070d2 !important;
+}
+
+.btn-sandbox:hover {
+    background-color: #f0f7ff;
+}
+
+.auth-note {
+    margin-top: 28px;
+    font-size: 11px;
+    color: #999;
+    font-family: 'Segoe UI', sans-serif;
+    line-height: 1.5;
+}
+
+.coming-soon {
+    color: rgba(255, 255, 255, 0.6);
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 18px;
+    font-style: italic;
+}
+
+.hidden-note {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    color: transparent;
+    font-size: 12px;
+    user-select: text;
 }
