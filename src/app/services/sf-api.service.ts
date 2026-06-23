@@ -157,7 +157,7 @@ export class SFAPIService {
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
     
-    var url = credentials.instance_url+"/services/data/v20.0/sobjects/user/"+user.id+"/";
+    var url = credentials.instance_url+"/services/data/v43.0/sobjects/user/"+user.id+"/";
     return this.http.patch<any>(url,{"Country":user.Country},{headers});
   }
 
@@ -166,7 +166,7 @@ export class SFAPIService {
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
     
-    var url = credentials.instance_url+"/services/data/v20.0/sobjects/user/"+id+"/";
+    var url = credentials.instance_url+"/services/data/v43.0/sobjects/user/"+id+"/";
     return this.http.get<any>(url,{headers});
   }
   getOrgDetatils(credentials):Observable<any>{
