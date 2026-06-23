@@ -148,7 +148,7 @@ export class SFAPIService {
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
     
-    var url = credentials.instance_url+'/services/data/v24.0/chatter/users/me';
+    var url = credentials.instance_url+'/services/data/v43.0/chatter/users/me';
     return this.http.get<any>(url,{headers});
   }
 
