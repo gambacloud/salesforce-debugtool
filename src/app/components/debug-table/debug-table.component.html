@@ -111,35 +111,7 @@
       <br/>
       
       
-      <div class="spinner-wrapper">
-        <button  (click)="downloadSelected()"  mat-raised-button color="primary" >DownLoad Selected</button>
-        &nbsp;   
-        <button  (click)="downLoadZip()"  mat-raised-button color="primary" >DownLoad all</button>  
-        <mat-spinner *ngIf="showDownLoadAllSpinner" [diameter]="20"></mat-spinner>
-        &nbsp;
-        &nbsp;
-        &nbsp;
-        <button  (click)="deleteAllLogs()" mat-raised-button color="warn" >Delete all</button>
-        
-        <mat-spinner *ngIf="showDeleteAllSpinner" [diameter]="20"></mat-spinner>
-        &nbsp;
-        <button  (click)="deleteDisplayingLogs()" mat-raised-button color="warn" >Delete Displaying</button>
-        &nbsp;
-        <button  (click)="deleteSelected()" mat-raised-button color="accent" >Delete Selected</button>
-        &nbsp;
-        <button  (click)="deleteNotSelected()" mat-raised-button color="accent" >Delete not selected</button>
-        &nbsp;
-        <button  (click)="deleteUnmatched()" mat-raised-button color="accent" >Delete  Unmatched</button>
-        &nbsp;
-        <mat-spinner *ngIf="showDeleteSelectedSpinner" [diameter]="20"></mat-spinner>
-        &nbsp;&nbsp;
-        <span class="tooltip ">
-            <span class="tooltip info-mark" >&#9432;</span>
-            
-            <span class="tooltiptext ">Actions will apply to Displayed only!</span>
-        </span>
-        
-      </div>
+      <app-action-bar [actions]="debugActions" (actionTriggered)="onActionTriggered($event)"></app-action-bar>
       
       
      

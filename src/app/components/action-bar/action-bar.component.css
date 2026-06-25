@@ -1,0 +1,18 @@
+.action-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.action-badge {
+  font-size: 12px;
+  position: absolute;
+  right: 9px;
+  text-shadow: 0.3px 0.3px gray;
+}
+
+.action-spinner {
+  display: inline-block;
+}

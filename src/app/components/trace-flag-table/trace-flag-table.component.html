@@ -10,40 +10,7 @@
     <br>
     
     
-    <div  class="spinner-wrapper">
-        
-        <!--<button (click)="showCreateNew=true">New</button>-->
-        <button mat-fab style="background-color: cadetblue;height: 70px; width: 70px;top: -12px;" (click)="showCreateNew=!showCreateNew" title="new traceflag"><mat-icon>plus_one</mat-icon></button>
-        &nbsp;&nbsp;
-        <button mat-fab color="primary"(click)="refreshTFromServer()"title="Refresh"> <mat-icon>refresh</mat-icon></button>
-        &nbsp;
-        &nbsp;
-        &nbsp;
-        <div class="example-button-container">
-            <button title="Delete All"  (click)="deleteAllTraceFlags()" mat-fab color="accent" aria-label="Example icon button with a delete icon">
-              <mat-icon>delete</mat-icon>
-             <span *ngIf="traceFlags" class="deleteBTN"  >-{{traceFlags.length}} </span> 
-            </button>
-          </div>
-        <!--<button  (click)="deleteAllTraceFlags()" >Delete all</button>-->
-        <mat-spinner *ngIf="showDeleteAllSpinner" [diameter]="20"></mat-spinner>
-        &nbsp;
-        <div class="example-button-container">
-            <button title="Delete Selected"  (click)="deleteSelected()" mat-fab color="warn" aria-label="Example icon button with a delete icon">
-              <mat-icon>delete</mat-icon>
-             <span class="deleteBTN"  >-{{selected}} </span> 
-            </button>
-          </div>  
-        <!--<button  (click)="deleteSelected()" >Delete Selected</button>-->
-        <mat-spinner *ngIf="showDeleteSelectedSpinner" [diameter]="20"></mat-spinner>
-        &nbsp;&nbsp;
-        <span class="tooltip ">
-            <span class="tooltip info-mark" >&#9432;</span>
-            
-            <span class="tooltiptext ">Actions will apply to Displayed only!</span>
-        </span>
-        
-    </div>
+    <app-action-bar [actions]="traceFlagActions" (actionTriggered)="onActionTriggered($event)"></app-action-bar>
     <br>
    
     <div id="myModal"  class="myModal" *ngIf="showCreateNew">

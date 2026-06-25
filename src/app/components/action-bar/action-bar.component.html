@@ -1,0 +1,58 @@
+<div class="action-bar">
+  <ng-container *ngFor="let action of actions">
+    <ng-container *ngIf="isVisible(action)">
+      <ng-container [ngSwitch]="action.style">
+
+        <button *ngSwitchCase="'fab'"
+          mat-fab
+          [color]="action.variant || 'primary'"
+          [title]="action.tooltip || action.label"
+          [disabled]="isDisabled(action)"
+          [ngStyle]="action.customStyle"
+          (click)="trigger(action.id)">
+          <mat-icon *ngIf="action.icon">{{ action.icon }}</mat-icon>
+          <span *ngIf="getBadge(action)" class="action-badge">{{ getBadge(action) }}</span>
+        </button>
+
+        <button *ngSwitchCase="'mini-fab'"
+          mat-mini-fab
+          [color]="action.variant || 'primary'"
+          [title]="action.tooltip || action.label"
+          [disabled]="isDisabled(action)"
+          [ngStyle]="action.customStyle"
+          (click)="trigger(action.id)">
+          <mat-icon *ngIf="action.icon">{{ action.icon }}</mat-icon>
+          <span *ngIf="getBadge(action)" class="action-badge">{{ getBadge(action) }}</span>
+        </button>
+
+        <button *ngSwitchCase="'icon'"
+          mat-icon-button
+          [color]="action.variant || 'primary'"
+          [title]="action.tooltip || action.label"
+          [disabled]="isDisabled(action)"
+          [ngStyle]="action.customStyle"
+          (click)="trigger(action.id)">
+          <mat-icon *ngIf="action.icon">{{ action.icon }}</mat-icon>
+        </button>
+
+        <button *ngSwitchDefault
+          mat-raised-button
+          [color]="action.variant || 'primary'"
+          [title]="action.tooltip || action.label"
+          [disabled]="isDisabled(action)"
+          [ngStyle]="action.customStyle"
+          (click)="trigger(action.id)">
+          <mat-icon *ngIf="action.icon">{{ action.icon }}</mat-icon>
+          {{ action.label }}
+        </button>
+
+      </ng-container>
+      <mat-spinner *ngIf="showSpinner(action)" class="action-spinner" [diameter]="20"></mat-spinner>
+    </ng-container>
+  </ng-container>
+
+  <span class="tooltip action-bar-info">
+    <span class="tooltip info-mark">&#9432;</span>
+    <span class="tooltiptext">Actions will apply to Displayed only!</span>
+  </span>
+</div>

@@ -1,6 +1,7 @@
 
 import { ChangeDetectionStrategy, OnInit,Input,AfterViewInit, Component, ElementRef, ViewChild ,OnChanges,AfterContentChecked,AfterContentInit,EventEmitter} from '@angular/core';
 import { Debug } from '../../models/Debug';
+import { ActionConfig } from '../action-bar/action-bar.component';
 import { GetLogsService } from '../../services/get-logs.service';
 import { SFAPIService } from '../../services/sf-api.service';
 import {FormControl} from '@angular/forms';
@@ -62,6 +63,81 @@ export class DebugTableComponent implements OnInit  ,AfterContentChecked{
   showsearchInFilesSpinner:boolean;
   isSelectAll:boolean;
   Debugs:Debug[];
+
+  debugActions: ActionConfig[] = [
+    {
+      id: 'downloadSelected',
+      label: 'Download Selected',
+      icon: 'save_alt',
+      style: 'raised',
+      variant: 'primary',
+      tooltip: 'Download Selected'
+    },
+    {
+      id: 'downloadAll',
+      label: 'Download All',
+      icon: 'cloud_download',
+      style: 'raised',
+      variant: 'primary',
+      tooltip: 'Download All',
+      isLoading: () => this.showDownLoadAllSpinner
+    },
+    {
+      id: 'deleteAll',
+      label: 'Delete All',
+      icon: 'delete_sweep',
+      style: 'raised',
+      variant: 'warn',
+      tooltip: 'Delete All',
+      isLoading: () => this.showDeleteAllSpinner
+    },
+    {
+      id: 'deleteDisplaying',
+      label: 'Delete Displaying',
+      icon: 'delete',
+      style: 'raised',
+      variant: 'warn',
+      tooltip: 'Delete Displaying'
+    },
+    {
+      id: 'deleteSelected',
+      label: 'Delete Selected',
+      icon: 'delete',
+      style: 'raised',
+      variant: 'accent',
+      tooltip: 'Delete Selected',
+      isLoading: () => this.showDeleteSelectedSpinner
+    },
+    {
+      id: 'deleteNotSelected',
+      label: 'Delete Not Selected',
+      icon: 'delete',
+      style: 'raised',
+      variant: 'accent',
+      tooltip: 'Delete Not Selected'
+    },
+    {
+      id: 'deleteUnmatched',
+      label: 'Delete Unmatched',
+      icon: 'delete',
+      style: 'raised',
+      variant: 'accent',
+      tooltip: 'Delete Unmatched'
+    }
+  ];
+
+  onActionTriggered(id: string): void {
+    switch (id) {
+      case 'downloadSelected':  this.downloadSelected(); break;
+      case 'downloadAll':       this.downLoadZip(null); break;
+      case 'deleteAll':         this.deleteAllLogs(); break;
+      case 'deleteDisplaying':  this.deleteDisplayingLogs(); break;
+      case 'deleteSelected':    this.deleteSelected(); break;
+      case 'deleteNotSelected': this.deleteNotSelected(); break;
+      case 'deleteUnmatched':   this.deleteUnmatched(); break;
+    }
+  }
+
   constructor(private SFAPIService:SFAPIService,toasterService: ToasterService ) { 
     
     this.toasterService = toasterService;

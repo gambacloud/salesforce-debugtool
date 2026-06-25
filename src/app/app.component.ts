@@ -98,6 +98,21 @@ export class AppComponent implements OnInit{
     }
     
     console.log('token',this.token);
+    this.initTheme();
+  }
+
+  currentTheme: 'old' | 'new' = 'old';
+
+  initTheme(): void {
+    const saved = localStorage.getItem('ui-theme') as 'old' | 'new';
+    this.currentTheme = saved || 'old';
+    if (this.currentTheme === 'new') document.body.classList.add('theme-new');
+  }
+
+  toggleTheme(): void {
+    this.currentTheme = this.currentTheme === 'old' ? 'new' : 'old';
+    document.body.classList.toggle('theme-new', this.currentTheme === 'new');
+    localStorage.setItem('ui-theme', this.currentTheme);
   }
 
   addTab(selectAfterAdding: boolean) {

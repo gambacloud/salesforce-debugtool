@@ -1,5 +1,6 @@
 import { Component, OnInit,Input ,OnDestroy,Inject,ChangeDetectionStrategy,EventEmitter,Output,HostListener } from '@angular/core';
 import { TraceFlag } from '../../models/TraceFlag';
+import { ActionConfig } from '../action-bar/action-bar.component';
 import { SFAPIService } from '../../services/sf-api.service';
 import {MatDialog, MAT_DIALOG_DATA,MatDialogConfig} from '@angular/material/dialog';
 import {ToasterContainerComponent, ToasterService,ToasterModule,ToasterConfig} from 'angular2-toaster';
@@ -59,6 +60,57 @@ export class TraceFlagTableComponent implements OnInit {
   showsearchInFilesSpinner:boolean;
   showDeleteSelectedSpinner:boolean;
   showRefrershSpinner:boolean;
+
+  traceFlagActions: ActionConfig[] = [
+    {
+      id: 'new',
+      label: 'New Trace Flag',
+      icon: 'plus_one',
+      style: 'fab',
+      variant: 'primary',
+      tooltip: 'New trace flag',
+      customStyle: { 'background-color': 'cadetblue', 'height': '70px', 'width': '70px', 'top': '-12px' }
+    },
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      icon: 'refresh',
+      style: 'fab',
+      variant: 'primary',
+      tooltip: 'Refresh',
+      isLoading: () => this.showRefrershSpinner
+    },
+    {
+      id: 'deleteAll',
+      label: 'Delete All',
+      icon: 'delete',
+      style: 'fab',
+      variant: 'accent',
+      tooltip: 'Delete All',
+      badge: () => this.traceFlags ? `-${this.traceFlags.length}` : '',
+      isLoading: () => this.showDeleteAllSpinner
+    },
+    {
+      id: 'deleteSelected',
+      label: 'Delete Selected',
+      icon: 'delete',
+      style: 'fab',
+      variant: 'warn',
+      tooltip: 'Delete Selected',
+      badge: () => `-${this.selected}`,
+      isLoading: () => this.showDeleteSelectedSpinner
+    }
+  ];
+
+  onActionTriggered(id: string): void {
+    switch (id) {
+      case 'new':            this.showCreateNew = !this.showCreateNew; break;
+      case 'refresh':        this.refreshTFromServer(); break;
+      case 'deleteAll':      this.deleteAllTraceFlags(); break;
+      case 'deleteSelected': this.deleteSelected(); break;
+    }
+  }
+
   constructor(private sfAPIService:SFAPIService,toasterService:ToasterService,public dialog: MatDialog) {
     this.toasterService = toasterService;
    }

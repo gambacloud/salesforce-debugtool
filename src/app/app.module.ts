@@ -44,6 +44,7 @@ import { MatTableDataSource} from '@angular/material/table';
 import {  MatSort} from '@angular/material/sort';
 import {  MatPaginator} from '@angular/material/paginator';
 import { LogTabComponent } from './components/log-tab/log-tab.component';
+import { ActionBarComponent } from './components/action-bar/action-bar.component';
 import {MatListModule} from '@angular/material/list';
 import {MatExpansionModule} from '@angular/material/expansion';
 const appRoutes: Routes = [ 
@@ -62,8 +63,9 @@ const appRoutes: Routes = [
     DebugWindowComponent,
     
     WindowComponent,
-    
-    LogTabComponent
+
+    LogTabComponent,
+    ActionBarComponent
   ],
   imports: [
     MatSlideToggleModule,
