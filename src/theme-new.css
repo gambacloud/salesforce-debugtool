@@ -86,28 +86,28 @@ body.theme-new .action-bar {
 }
 
 /* ---- Material FAB / raised buttons ---- */
-body.theme-new .mat-fab[color="primary"],
-body.theme-new .mat-mini-fab[color="primary"],
-body.theme-new .mat-raised-button[color="primary"] {
+body.theme-new .mat-fab.mat-primary,
+body.theme-new .mat-mini-fab.mat-primary,
+body.theme-new .mat-raised-button.mat-primary {
   background-color: var(--nt-primary-btn) !important;
   color: white !important;
 }
 
-body.theme-new .mat-fab[color="accent"],
-body.theme-new .mat-mini-fab[color="accent"],
-body.theme-new .mat-raised-button[color="accent"] {
+body.theme-new .mat-fab.mat-accent,
+body.theme-new .mat-mini-fab.mat-accent,
+body.theme-new .mat-raised-button.mat-accent {
   background-color: var(--nt-warn) !important;
   color: white !important;
 }
 
-body.theme-new .mat-fab[color="warn"],
-body.theme-new .mat-mini-fab[color="warn"],
-body.theme-new .mat-raised-button[color="warn"] {
+body.theme-new .mat-fab.mat-warn,
+body.theme-new .mat-mini-fab.mat-warn,
+body.theme-new .mat-raised-button.mat-warn {
   background-color: var(--nt-danger) !important;
   color: white !important;
 }
 
-body.theme-new .mat-icon-button[color="primary"] {
+body.theme-new .mat-icon-button.mat-primary {
   color: var(--nt-accent) !important;
 }
 
