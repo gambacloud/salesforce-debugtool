@@ -5,7 +5,7 @@ export interface ActionConfig {
   label: string;
   icon?: string;
   variant?: 'primary' | 'accent' | 'warn' | 'default';
-  style?: 'fab' | 'mini-fab' | 'raised' | 'icon';
+  style?: 'fab' | 'mini-fab' | 'raised' | 'icon' | 'separator';
   tooltip?: string;
   badge?: () => string;
   showIf?: () => boolean;
