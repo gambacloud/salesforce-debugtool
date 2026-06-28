@@ -305,153 +305,122 @@ body.theme-new tr[style*="background-color: LightGreen"] td {
 
 /* ============================================================
    UI Enhancement Pass: layout, hierarchy, information grouping
+   No ::before pseudo-elements — Angular encapsulation makes them
+   unreliable from global CSS. All rules use !important to beat
+   component-scoped specificity.
    ============================================================ */
 
-/* ---- Section header labels (::before on flex containers) ---- */
-body.theme-new .action-bar::before {
-  content: 'ACTIONS';
-  flex: 0 0 100%;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--nt-text-secondary);
-  border-bottom: 1px solid var(--nt-border);
-  padding-bottom: 8px;
-  margin-bottom: 4px;
+/* ---- Accent stripe on every card section ---- */
+body.theme-new .action-bar {
+  border-top: 3px solid var(--nt-accent) !important;
 }
 
-body.theme-new .filtersCon::before {
-  content: 'FILTERS';
-  flex: 0 0 100%;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--nt-text-secondary);
-  border-bottom: 1px solid var(--nt-border);
-  padding-bottom: 8px;
-  margin-bottom: 4px;
+body.theme-new .filtersCon {
+  border-top: 3px solid var(--nt-primary-btn) !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
 }
 
-/* ---- Search bar section label ---- */
 body.theme-new .spinner-wrapper {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  border-top: 3px solid var(--nt-text-secondary) !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 10px !important;
 }
 
-body.theme-new .spinner-wrapper::before {
-  content: 'SEARCH IN LOGS';
-  flex: 0 0 100%;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--nt-text-secondary);
-  border-bottom: 1px solid var(--nt-border);
-  padding-bottom: 8px;
-  margin-bottom: 4px;
+/* ---- Trace flag status filter as card ---- */
+body.theme-new .filter-section {
+  background: var(--nt-bg-surface) !important;
+  border: 1px solid var(--nt-border) !important;
+  border-top: 3px solid var(--nt-accent) !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+  margin: 8px 0 !important;
+}
+
+/* ---- Status filter pills ---- */
+body.theme-new .example-list-section ul {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  padding: 4px 0 !important;
+  margin: 4px 0 0 !important;
+  list-style: none !important;
+}
+
+body.theme-new .example-list-section li {
+  margin: 0 !important;
+  display: inline-flex !important;
+}
+
+body.theme-new .example-list-section .mat-checkbox {
+  background: var(--nt-bg-surface-2) !important;
+  border-radius: 20px !important;
+  padding: 4px 12px 4px 6px !important;
+  border: 1px solid var(--nt-border) !important;
+}
+
+body.theme-new .example-list-section .mat-checkbox.mat-primary {
+  border-color: #4ade80 !important;
+}
+
+body.theme-new .example-list-section .mat-checkbox.mat-accent {
+  border-color: #64748b !important;
+}
+
+body.theme-new .example-list-section .mat-checkbox.mat-warn {
+  border-color: #a78bfa !important;
+}
+
+body.theme-new .example-list-section .mat-checkbox-checked.mat-primary {
+  background: rgba(74, 222, 128, 0.12) !important;
+}
+
+body.theme-new .example-list-section .mat-checkbox-checked.mat-accent {
+  background: rgba(100, 116, 139, 0.15) !important;
+}
+
+body.theme-new .example-list-section .mat-checkbox-checked.mat-warn {
+  background: rgba(167, 139, 250, 0.12) !important;
 }
 
 /* ---- Debug log stats strip ---- */
 body.theme-new app-debug-table h2 {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 14px;
-  font-weight: 500;
-  background: var(--nt-bg-surface);
-  border: 1px solid var(--nt-border);
-  border-radius: 8px;
-  padding: 10px 16px;
-  margin: 4px 0;
+  background: var(--nt-bg-surface) !important;
+  border: 1px solid var(--nt-border) !important;
+  border-left: 4px solid var(--nt-accent) !important;
+  border-radius: 8px !important;
+  padding: 10px 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  margin: 4px 0 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
 }
 
 body.theme-new app-debug-table p {
-  font-size: 12px;
-  color: var(--nt-text-secondary);
-  padding: 2px 4px;
-  margin: 2px 0 8px;
-}
-
-/* ---- Trace flag status filter pills ---- */
-body.theme-new .filter-section {
-  background: var(--nt-bg-surface);
-  border: 1px solid var(--nt-border);
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin: 8px 0;
-}
-
-body.theme-new .filter-section::before {
-  content: 'FILTER BY STATUS';
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--nt-text-secondary);
-  border-bottom: 1px solid var(--nt-border);
-  padding-bottom: 8px;
-  margin-bottom: 10px;
-}
-
-body.theme-new .example-list-section ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 0;
-  margin: 8px 0 0;
-  list-style: none;
-}
-
-body.theme-new .example-list-section li {
-  margin: 0;
-}
-
-body.theme-new .example-list-section .mat-checkbox {
-  background: var(--nt-bg-surface-2);
-  border-radius: 20px;
-  padding: 4px 12px 4px 4px;
-  border: 1px solid var(--nt-border);
-  transition: border-color 0.2s, background 0.2s;
-}
-
-body.theme-new .example-list-section .mat-checkbox.mat-primary {
-  border-color: #4ade80;
-}
-
-body.theme-new .example-list-section .mat-checkbox.mat-accent {
-  border-color: #64748b;
-}
-
-body.theme-new .example-list-section .mat-checkbox.mat-warn {
-  border-color: #a78bfa;
-}
-
-body.theme-new .example-list-section .mat-checkbox-checked.mat-primary {
-  background: rgba(74, 222, 128, 0.1);
-}
-
-body.theme-new .example-list-section .mat-checkbox-checked.mat-accent {
-  background: rgba(100, 116, 139, 0.12);
-}
-
-body.theme-new .example-list-section .mat-checkbox-checked.mat-warn {
-  background: rgba(167, 139, 250, 0.1);
+  font-size: 12px !important;
+  color: var(--nt-text-secondary) !important;
+  margin: 0 0 8px !important;
+  padding: 0 4px !important;
 }
 
 /* ---- Action group separator ---- */
 body.theme-new .action-separator {
-  width: 1px;
-  height: 32px;
-  background: var(--nt-border);
-  margin: 0 8px;
-  border-radius: 1px;
-  align-self: center;
+  width: 1px !important;
+  height: 32px !important;
+  background: var(--nt-border) !important;
+  margin: 0 8px !important;
+  border-radius: 1px !important;
+  align-self: center !important;
+  display: inline-block !important;
 }
 
 /* ---- Table breathing room ---- */
 body.theme-new table th,
 body.theme-new table td {
-  padding: 10px 14px;
+  padding: 10px 14px !important;
 }
