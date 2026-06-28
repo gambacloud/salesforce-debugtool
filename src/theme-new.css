@@ -305,14 +305,40 @@ body.theme-new tr[style*="background-color: LightGreen"] td {
 
 /* ============================================================
    UI Enhancement Pass: layout, hierarchy, information grouping
-   No ::before pseudo-elements — Angular encapsulation makes them
-   unreliable from global CSS. All rules use !important to beat
-   component-scoped specificity.
+   ::before labels work from global CSS — component encapsulation
+   only scopes non-pseudo rules. !important beats component CSS.
    ============================================================ */
+
+/* ---- Section label mixin via ::before on flex containers ---- */
+body.theme-new .action-bar::before,
+body.theme-new .filtersCon::before,
+body.theme-new .spinner-wrapper::before {
+  flex: 0 0 100% !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 2px !important;
+  color: var(--nt-text-secondary) !important;
+  border-bottom: 1px solid var(--nt-border) !important;
+  padding-bottom: 8px !important;
+  margin-bottom: 4px !important;
+}
+
+body.theme-new .action-bar::before {
+  content: 'ACTIONS' !important;
+}
+
+body.theme-new .filtersCon::before {
+  content: 'FILTERS' !important;
+}
+
+body.theme-new .spinner-wrapper::before {
+  content: 'SEARCH IN LOGS' !important;
+}
 
 /* ---- Accent stripe on every card section ---- */
 body.theme-new .action-bar {
   border-top: 3px solid var(--nt-accent) !important;
+  flex-wrap: wrap !important;
 }
 
 body.theme-new .filtersCon {
@@ -327,6 +353,19 @@ body.theme-new .spinner-wrapper {
   flex-wrap: wrap !important;
   align-items: center !important;
   gap: 10px !important;
+}
+
+/* ---- Trace flag filter card header ---- */
+body.theme-new .filter-section::before {
+  content: 'FILTER BY STATUS' !important;
+  display: block !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 2px !important;
+  color: var(--nt-text-secondary) !important;
+  border-bottom: 1px solid var(--nt-border) !important;
+  padding-bottom: 8px !important;
+  margin-bottom: 10px !important;
 }
 
 /* ---- Trace flag status filter as card ---- */
