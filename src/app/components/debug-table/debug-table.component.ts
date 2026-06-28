@@ -82,6 +82,7 @@ export class DebugTableComponent implements OnInit  ,AfterContentChecked{
       tooltip: 'Download All',
       isLoading: () => this.showDownLoadAllSpinner
     },
+    { id: 'sep-dl', label: '', style: 'separator' },
     {
       id: 'deleteAll',
       label: 'Delete All',

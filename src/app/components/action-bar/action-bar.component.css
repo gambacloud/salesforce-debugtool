@@ -16,3 +16,10 @@
 .action-spinner {
   display: inline-block;
 }
+
+/* invisible in classic theme, visible in new theme via theme-new.css */
+.action-separator {
+  width: 0;
+  height: 32px;
+  align-self: center;
+}
