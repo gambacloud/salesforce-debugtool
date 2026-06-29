@@ -107,6 +107,10 @@ body.theme-new .mat-raised-button.mat-warn {
   color: white !important;
 }
 
+body.theme-new .mat-raised-button {
+  border-radius: 20px !important;
+}
+
 body.theme-new .mat-icon-button.mat-primary {
   color: var(--nt-accent) !important;
 }
