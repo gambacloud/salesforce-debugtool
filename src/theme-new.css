@@ -467,3 +467,165 @@ body.theme-new table th,
 body.theme-new table td {
   padding: 10px 14px !important;
 }
+
+/* ============================================================
+   Visual Upgrade Pass: depth, motion, typography, polish
+   ============================================================ */
+
+/* ---- Custom scrollbar ---- */
+body.theme-new ::-webkit-scrollbar { width: 6px; height: 6px; }
+body.theme-new ::-webkit-scrollbar-track { background: var(--nt-bg-page); }
+body.theme-new ::-webkit-scrollbar-thumb { background: var(--nt-border); border-radius: 3px; }
+body.theme-new ::-webkit-scrollbar-thumb:hover { background: var(--nt-text-secondary); }
+
+/* ---- Card depth — shadow on every panel ---- */
+body.theme-new .action-bar,
+body.theme-new .filtersCon,
+body.theme-new .spinner-wrapper,
+body.theme-new .filter-section {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), 0 1px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+body.theme-new .header {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ---- Raised button transitions + hover glow ---- */
+body.theme-new .mat-raised-button {
+  transition: box-shadow 0.2s ease, filter 0.2s ease !important;
+  letter-spacing: 0.4px !important;
+}
+
+body.theme-new .mat-raised-button.mat-primary:not([disabled]):hover {
+  box-shadow: 0 0 18px rgba(59, 130, 246, 0.55) !important;
+  filter: brightness(1.12) !important;
+}
+
+body.theme-new .mat-raised-button.mat-accent:not([disabled]):hover {
+  box-shadow: 0 0 18px rgba(251, 146, 60, 0.55) !important;
+  filter: brightness(1.12) !important;
+}
+
+body.theme-new .mat-raised-button.mat-warn:not([disabled]):hover {
+  box-shadow: 0 0 18px rgba(248, 113, 113, 0.55) !important;
+  filter: brightness(1.12) !important;
+}
+
+/* ---- FAB transitions + hover scale ---- */
+body.theme-new .mat-fab,
+body.theme-new .mat-mini-fab {
+  transition: box-shadow 0.2s ease, transform 0.2s ease, filter 0.2s ease !important;
+}
+
+body.theme-new .mat-fab:not([disabled]):hover,
+body.theme-new .mat-mini-fab:not([disabled]):hover {
+  transform: scale(1.1) !important;
+  filter: brightness(1.15) !important;
+}
+
+body.theme-new .mat-fab:not([disabled]):active,
+body.theme-new .mat-mini-fab:not([disabled]):active {
+  transform: scale(0.96) !important;
+}
+
+/* ---- Table row transition + sharper hover ---- */
+body.theme-new table tr {
+  transition: background-color 0.12s ease !important;
+}
+
+body.theme-new table tr:hover td {
+  background-color: rgba(45, 212, 191, 0.1) !important;
+  color: var(--nt-text-primary) !important;
+}
+
+/* ---- Table header elevated + sticky ---- */
+body.theme-new table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 5 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.5px !important;
+  text-transform: uppercase !important;
+  background-color: var(--nt-bg-surface-2) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* ---- Tab bar polish ---- */
+body.theme-new .mat-tab-label {
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+  min-width: 130px !important;
+  transition: color 0.2s ease !important;
+}
+
+body.theme-new .mat-tab-label:hover {
+  color: var(--nt-accent) !important;
+  background: rgba(45, 212, 191, 0.06) !important;
+}
+
+/* ---- Form field (filter dropdowns) rounded ---- */
+body.theme-new .mat-form-field-appearance-fill .mat-form-field-flex {
+  border-radius: 8px 8px 0 0 !important;
+  border: 1px solid var(--nt-border) !important;
+  border-bottom: none !important;
+  transition: border-color 0.2s ease, background-color 0.2s ease !important;
+}
+
+body.theme-new .mat-form-field.mat-focused .mat-form-field-flex {
+  border-color: var(--nt-accent) !important;
+  background-color: rgba(45, 212, 191, 0.05) !important;
+}
+
+/* ---- Stats strip — bold count numbers ---- */
+body.theme-new app-debug-table h2 {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: var(--nt-text-secondary) !important;
+  letter-spacing: 0.3px !important;
+}
+
+/* ---- Disabled button visual ---- */
+body.theme-new .mat-raised-button[disabled],
+body.theme-new .mat-fab[disabled],
+body.theme-new .mat-mini-fab[disabled] {
+  opacity: 0.35 !important;
+  background-color: var(--nt-bg-surface-2) !important;
+  color: var(--nt-text-secondary) !important;
+}
+
+/* ---- Theme toggle button polish ---- */
+body.theme-new .theme-toggle-btn {
+  background: rgba(45, 212, 191, 0.12) !important;
+  border-color: var(--nt-accent) !important;
+  color: var(--nt-accent) !important;
+  box-shadow: 0 0 12px rgba(45, 212, 191, 0.2) !important;
+  transition: box-shadow 0.2s ease, background 0.2s ease !important;
+}
+
+body.theme-new .theme-toggle-btn:hover {
+  background: rgba(45, 212, 191, 0.22) !important;
+  box-shadow: 0 0 20px rgba(45, 212, 191, 0.4) !important;
+}
+
+/* ---- Tooltip text polish ---- */
+body.theme-new .tooltip .tooltiptext {
+  font-size: 11px !important;
+  letter-spacing: 0.3px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ---- Status pill shadows ---- */
+body.theme-new .example-list-section .mat-checkbox {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+  transition: box-shadow 0.2s ease, background 0.2s ease !important;
+}
+
+body.theme-new .example-list-section .mat-checkbox:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* ---- Stats strip card shadow ---- */
+body.theme-new app-debug-table h2 {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25) !important;
+}
