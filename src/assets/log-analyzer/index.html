@@ -823,6 +823,21 @@ function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/<
 
 // ======================== INIT ========================
 showDropZone();
+
+// ======================== HOST EMBEDDING (local addition, not upstream) ========================
+// Lets the debug tool feed this page a log via postMessage instead of relying on
+// drag/drop, so it doesn't matter when this window finishes loading its own resources.
+window.addEventListener('message', (event) => {
+  if (event.origin !== window.location.origin) return;
+  const msg = event.data;
+  if (msg && msg.type === 'sfdc-log-analyzer:load') {
+    const file = new File([msg.text], msg.fileName || 'debug.log', { type: 'text/plain' });
+    analyze(file);
+  }
+});
+if (window.opener) {
+  window.opener.postMessage({ type: 'sfdc-log-analyzer:ready' }, window.location.origin);
+}
 </script>
 </body>
 </html>
