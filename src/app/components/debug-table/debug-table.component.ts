@@ -4,6 +4,7 @@ import { Debug } from '../../models/Debug';
 import { ActionConfig } from '../action-bar/action-bar.component';
 import { GetLogsService } from '../../services/get-logs.service';
 import { SFAPIService } from '../../services/sf-api.service';
+import { LogAnalyzerService } from '../../services/log-analyzer.service';
 import {FormControl} from '@angular/forms';
 import * as JSZip from 'jszip';
 import {ToasterContainerComponent, ToasterService,ToasterModule,ToasterConfig} from 'angular2-toaster';
@@ -82,6 +83,14 @@ export class DebugTableComponent implements OnInit  ,AfterContentChecked{
       tooltip: 'Download All',
       isLoading: () => this.showDownLoadAllSpinner
     },
+    {
+      id: 'analyzeSelected',
+      label: 'Analyze Log',
+      icon: 'query_stats',
+      style: 'raised',
+      variant: 'primary',
+      tooltip: 'Analyze Selected Log'
+    },
     { id: 'sep-dl', label: '', style: 'separator' },
     {
       id: 'deleteAll',
@@ -131,6 +140,7 @@ export class DebugTableComponent implements OnInit  ,AfterContentChecked{
     switch (id) {
       case 'downloadSelected':  this.downloadSelected(); break;
       case 'downloadAll':       this.downLoadZip(null); break;
+      case 'analyzeSelected':   this.analyzeSelectedLog(); break;
       case 'deleteAll':         this.deleteAllLogs(); break;
       case 'deleteDisplaying':  this.deleteDisplayingLogs(); break;
       case 'deleteSelected':    this.deleteSelected(); break;
@@ -139,7 +149,7 @@ export class DebugTableComponent implements OnInit  ,AfterContentChecked{
     }
   }
 
-  constructor(private SFAPIService:SFAPIService,toasterService: ToasterService ) { 
+  constructor(private SFAPIService:SFAPIService,private logAnalyzerService: LogAnalyzerService,toasterService: ToasterService ) {
     
     this.toasterService = toasterService;
     this.DescOrder = true;
@@ -341,6 +351,28 @@ export class DebugTableComponent implements OnInit  ,AfterContentChecked{
       setTimeout(function(){ that.downLoadZip(logs);}, 1000);
     }
     
+  }
+
+  analyzeSelectedLog():void{
+    var selected = this.Debugs.filter( function( log ) {
+      return log['selected'] == true && log['display'];
+    });
+    if(selected.length !== 1){
+      this.toasterService.pop('warning', 'Analyze Log', 'Select exactly one log to analyze.');
+      return;
+    }
+    var log = selected[0];
+    if(log['textFile']){
+      this.logAnalyzerService.open(log['textFile'], log.Id + '.log');
+    }
+    else{
+      log['textFileStatuse'] = 'downloading';
+      this.SFAPIService.getLogText(log.Id,this.credentials).subscribe(logTextFile => {
+        log['textFile'] = logTextFile;
+        log['textFileStatuse'] = 'done';
+        this.logAnalyzerService.open(logTextFile, log.Id + '.log');
+      });
+    }
   }
 
   downloadSelected(){

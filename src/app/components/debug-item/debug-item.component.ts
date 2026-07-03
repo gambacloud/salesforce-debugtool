@@ -5,6 +5,7 @@ import { SFAPIService } from '../../services/sf-api.service';
 import {MatDialog, MAT_DIALOG_DATA,MatDialogConfig} from '@angular/material/dialog';
 import {FixedSizeVirtualScrollStrategy, VIRTUAL_SCROLL_STRATEGY} from '@angular/cdk/scrolling';
 import { DataService } from '../../services/data.service';
+import { LogAnalyzerService } from '../../services/log-analyzer.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -25,7 +26,7 @@ export class DebugItemComponent implements OnInit, OnDestroy  {
   openNewLogTab:boolean;
   chiledWindowClosed = false;
   @Input() GMToffSet :number;
-  constructor(private SFAPIService:SFAPIService ,public dialog: MatDialog,private data: DataService) {
+  constructor(private SFAPIService:SFAPIService ,public dialog: MatDialog,private data: DataService,private logAnalyzerService: LogAnalyzerService) {
     
     
    }
@@ -90,6 +91,21 @@ export class DebugItemComponent implements OnInit, OnDestroy  {
       });
     }
     
+  }
+
+  analyzeLog():void{
+    console.log('analyzeLog id',this.Debug.Id);
+    if(this.Debug['textFile']){
+      this.logAnalyzerService.open(this.Debug['textFile'], this.Debug.Id + '.log');
+    }
+    else{
+      this.Debug['textFileStatuse'] = 'downloading';
+      this.SFAPIService.getLogText(this.Debug.Id,this.credentials).subscribe(log => {
+        this.Debug['textFile'] = log;
+        this.Debug['textFileStatuse'] = 'done';
+        this.logAnalyzerService.open(log, this.Debug.Id + '.log');
+      });
+    }
   }
 
   downLoad():void{
