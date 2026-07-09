@@ -17,6 +17,8 @@ body.theme-new {
   --nt-text-primary:  #e2e8f0;
   --nt-text-secondary:#94a3b8;
   --nt-border:        #2d3f55;
+  --nt-row-hover:     rgba(45, 212, 191, 0.1);
+  --nt-row-alt:       rgba(255, 255, 255, 0.03);
   background-color: var(--nt-bg-page);
   color: var(--nt-text-primary);
 }
