@@ -681,6 +681,11 @@
 
         (allNodes.profiles || []).forEach(function (p) {
             (p.classAccesses || []).forEach(function (ca) { addEdge(p.name, 'Profile', ca.apexClass, 'profile-access'); });
+            (p.objectPermissions || []).forEach(function (op) { addEdge(p.name, 'Profile', op.object, 'object-permission'); });
+            (p.fieldPermissions || []).forEach(function (fp) {
+                var objName = fp.field ? fp.field.split('.')[0] : null;
+                addEdge(p.name, 'Profile', objName, 'field-permission');
+            });
         });
 
         var seen = new Set();

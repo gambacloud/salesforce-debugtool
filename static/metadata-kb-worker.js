@@ -21,6 +21,10 @@ self.onmessage = function (e) {
     });
 };
 
+function decodeApiFilename(name) {
+    try { return decodeURIComponent(name); } catch (e) { return name; }
+}
+
 async function handleMessage(data) {
     var fileName = data.fileName;
     var buffer = data.buffer;
@@ -59,13 +63,15 @@ async function handleMessage(data) {
         var file = entries[i];
         var entryPath = file.name.replace(/\\/g, '/');
         var lower = entryPath.toLowerCase();
-        var filename = entryPath.split('/').pop();
+        // Classic Metadata API retrieve zips URL-encode special characters (e.g. ":", " ")
+        // in filenames derived from labels (mainly Profiles) — decode for a readable name.
+        var filename = decodeApiFilename(entryPath.split('/').pop());
 
         // ── Flows ── (".flow" is the classic Metadata API retrieve format; ".flow-meta.xml" is SFDX source format)
         if (lower.endsWith('.flow-meta.xml') || lower.endsWith('.flow') || (lower.includes('/flows/') && lower.endsWith('.xml'))) {
             var flowName = filename.replace(/\.flow-meta\.xml$/i, '').replace(/\.flow$/i, '').replace(/\.xml$/i, '');
             var flowNode = P.parseFlow(flowName, await file.async('string'));
-            if (flowNode) { nodes.flows.push(flowNode); counts.flows++; }
+            if (flowNode) { flowNode.sourcePath = entryPath; nodes.flows.push(flowNode); counts.flows++; }
             progress('Flows');
             continue;
         }
@@ -74,8 +80,13 @@ async function handleMessage(data) {
         if (lower.endsWith('.trigger') || lower.endsWith('.trigger-meta.xml')) {
             if (lower.endsWith('-meta.xml')) { progress('Triggers'); continue; }
             var trgName = filename.replace(/\.trigger.*$/i, '');
-            var trgNode = P.parseTrigger(trgName, await file.async('string'));
-            if (trgNode) { nodes.triggers.push(trgNode); counts.triggers++; }
+            var trgCode = await file.async('string');
+            var trgNode = P.parseTrigger(trgName, trgCode);
+            if (trgNode) {
+                trgNode.sourcePath = entryPath;
+                trgNode.sourceContent = trgCode;
+                nodes.triggers.push(trgNode); counts.triggers++;
+            }
             progress('Apex Triggers');
             continue;
         }
@@ -83,8 +94,13 @@ async function handleMessage(data) {
         // ── Apex Classes ──
         if (lower.endsWith('.cls') && !lower.endsWith('.cls-meta.xml')) {
             var clsName = filename.replace(/\.cls$/i, '');
-            var clsNode = P.parseApexClass(clsName, await file.async('string'));
-            if (clsNode) { nodes.classes.push(clsNode); counts.classes++; }
+            var clsCode = await file.async('string');
+            var clsNode = P.parseApexClass(clsName, clsCode);
+            if (clsNode) {
+                clsNode.sourcePath = entryPath;
+                clsNode.sourceContent = clsCode;
+                nodes.classes.push(clsNode); counts.classes++;
+            }
             progress('Apex Classes');
             continue;
         }
@@ -95,6 +111,7 @@ async function handleMessage(data) {
             var isPlatformEvent = objName.endsWith('__e') || lower.includes('/platformevents/');
             var objNode = P.parseCustomObject(objName, await file.async('string'), isPlatformEvent);
             if (objNode) {
+                objNode.sourcePath = entryPath;
                 nodes.objects.push(objNode);
                 if (isPlatformEvent) counts.events++; else counts.objects++;
             }
@@ -106,7 +123,7 @@ async function handleMessage(data) {
         if (lower.endsWith('.profile-meta.xml') || lower.endsWith('.profile') || (lower.includes('/profiles/') && lower.endsWith('.xml'))) {
             var profName = filename.replace(/\.profile-meta\.xml$/i, '').replace(/\.profile$/i, '').replace(/\.xml$/i, '');
             var profNode = P.parseProfile(profName, await file.async('string'));
-            if (profNode) { nodes.profiles.push(profNode); counts.profiles++; }
+            if (profNode) { profNode.sourcePath = entryPath; nodes.profiles.push(profNode); counts.profiles++; }
             progress('Profiles');
             continue;
         }
@@ -120,8 +137,10 @@ async function handleMessage(data) {
                 if (!lwcMap[lwcComp]) lwcMap[lwcComp] = {};
                 if (lower.endsWith('.js') && !lower.endsWith('.test.js')) {
                     lwcMap[lwcComp].js = await file.async('string');
+                    lwcMap[lwcComp].jsPath = entryPath;
                 } else if (lower.endsWith('.html')) {
                     lwcMap[lwcComp].html = await file.async('string');
+                    lwcMap[lwcComp].htmlPath = entryPath;
                 }
             }
             progress('LWC');
@@ -137,8 +156,10 @@ async function handleMessage(data) {
                 if (!auraMap[auraComp]) auraMap[auraComp] = {};
                 if (lower.endsWith('.cmp')) {
                     auraMap[auraComp].cmp = await file.async('string');
+                    auraMap[auraComp].cmpPath = entryPath;
                 } else if (lower.endsWith('controller.js')) {
                     auraMap[auraComp].controllerJs = await file.async('string');
+                    auraMap[auraComp].controllerJsPath = entryPath;
                 }
             }
             progress('Aura');
@@ -153,6 +174,9 @@ async function handleMessage(data) {
         var files = lwcMap[compName];
         var jsData = files.js ? P.parseLwcJs(compName, files.js) : {};
         var htmlData = files.html ? P.parseLwcHtml(compName, files.html) : {};
+        var sourceFiles = [];
+        if (files.js) sourceFiles.push({ path: files.jsPath, content: files.js });
+        if (files.html) sourceFiles.push({ path: files.htmlPath, content: files.html });
         return {
             name: compName,
             apexImports: jsData.apexImports || [],
@@ -160,6 +184,7 @@ async function handleMessage(data) {
             flowInvoke: jsData.flowInvoke || [],
             flowRefs: htmlData.flowRefs || [],
             childComponents: htmlData.childComponents || [],
+            sourceFiles: sourceFiles,
         };
     });
     counts.lwc = lwcNodes.length;
@@ -168,12 +193,16 @@ async function handleMessage(data) {
         var files = auraMap[compName];
         var cmpData = files.cmp ? P.parseAuraCmp(compName, files.cmp) : {};
         var ctrlData = files.controllerJs ? P.parseAuraController(compName, files.controllerJs) : {};
+        var sourceFiles = [];
+        if (files.cmp) sourceFiles.push({ path: files.cmpPath, content: files.cmp });
+        if (files.controllerJs) sourceFiles.push({ path: files.controllerJsPath, content: files.controllerJs });
         return {
             name: compName,
             flowRefs: cmpData.flowRefs || [],
             controller: cmpData.controller || null,
             childComponents: cmpData.childComponents || [],
             apexMethods: ctrlData.apexCalls || [],
+            sourceFiles: sourceFiles,
         };
     });
     counts.aura = auraNodes.length;
@@ -221,6 +250,19 @@ function mdTable(headers, rows) {
 
 function yesNo(v) { return v ? 'Yes' : 'No'; }
 
+// Repomix-style citation block: wraps real file content in a <file path="..."> tag
+// with injected "line-number + tab" prefixes (same convention this toolchain's own
+// file-reading tools use), so an LLM/NotebookLM can quote or cite an exact line.
+function injectLineNumbers(content) {
+    return content.split(/\r?\n/).map(function (line, i) { return (i + 1) + '\t' + line; }).join('\n');
+}
+function renderSourceFile(path, content) {
+    return '<file path="' + path + '">\n' + injectLineNumbers(content) + '\n</file>';
+}
+function sourceLine(path) {
+    return path ? '- **Source:** `' + path + '`' : null;
+}
+
 var EDGE_LABELS = {
     'trigger-handler': 'handled by', 'apex-call': 'calls', 'flow-invoke': 'invokes flow',
     'executes-batch': 'executes batch', 'enqueues-job': 'enqueues job', 'publishes-event': 'publishes event',
@@ -228,6 +270,7 @@ var EDGE_LABELS = {
     'flow-apex': 'calls apex action', 'apex-import': 'imports apex', 'embeds-flow': 'embeds flow',
     'child-component': 'uses component', 'apex-controller': 'uses controller',
     'formula-ref': 'formula references', 'profile-access': 'grants access to',
+    'object-permission': 'has object permissions on', 'field-permission': 'has field permissions on',
 };
 function edgeLabel(type) { return EDGE_LABELS[type] || type; }
 
@@ -271,6 +314,52 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
         ['Dependency Edges', edges.length],
     ]));
 
+    // ── Source Manifest & References ──
+    out.push('## Source Manifest & References');
+    out.push('');
+    out.push('Quick per-object index of related files and permissions — use this to jump straight to the right source before reading the detailed sections below.');
+    out.push('');
+    if (nodes.objects.length === 0) {
+        out.push('_None found._\n');
+    } else {
+        nodes.objects.forEach(function (obj) {
+            out.push('### ' + obj.name);
+            if (obj.sourcePath) out.push('- **Metadata File:** `' + obj.sourcePath + '`');
+
+            var related = edges.filter(function (e) {
+                return (e.to === obj.name && e.toType === 'CustomObject') || (e.from === obj.name && e.fromType === 'CustomObject');
+            });
+
+            var relatedApex = Array.from(new Set(
+                related.filter(function (e) { return e.toType === 'CustomObject' && (e.fromType === 'ApexClass' || e.fromType === 'Trigger'); })
+                    .map(function (e) { return e.from + (e.fromType === 'Trigger' ? ' (Trigger)' : ''); })
+            ));
+            if (relatedApex.length) out.push('- **Related Apex:** ' + relatedApex.join(', '));
+
+            var relatedFlows = Array.from(new Set(
+                related.filter(function (e) { return e.toType === 'CustomObject' && e.fromType === 'Flow'; }).map(function (e) { return e.from; })
+            ));
+            if (relatedFlows.length) out.push('- **Related Flows:** ' + relatedFlows.join(', '));
+
+            var profileAccess = [];
+            nodes.profiles.forEach(function (p) {
+                var op = (p.objectPermissions || []).filter(function (x) { return x.object === obj.name; })[0];
+                if (!op) return;
+                var perms = [];
+                if (op.read) perms.push('Read');
+                if (op.create) perms.push('Create');
+                if (op.edit) perms.push('Edit');
+                if (op.deleteAccess) perms.push('Delete');
+                if (op.viewAll) perms.push('ViewAll');
+                if (op.modifyAll) perms.push('ModifyAll');
+                profileAccess.push(p.name + (perms.length ? ' (' + perms.join(', ') + ')' : ' (no CRUD)'));
+            });
+            if (profileAccess.length) out.push('- **Profile Access:** ' + profileAccess.join(', '));
+
+            out.push('');
+        });
+    }
+
     // ── Dependency Graph ──
     out.push('## Dependency Graph');
     out.push('');
@@ -293,6 +382,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
         out.push('### ' + obj.name + (obj.label && obj.label !== obj.name ? ' — ' + obj.label : '') + (obj.type === 'PlatformEvent' ? ' _(Platform Event)_' : ''));
         out.push('');
         if (obj.plural) out.push('Plural label: ' + obj.plural);
+        var objSrc = sourceLine(obj.sourcePath);
+        if (objSrc) out.push(objSrc);
         out.push('');
         out.push('**Fields:**');
         out.push('');
@@ -339,6 +430,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
     nodes.flows.forEach(function (flow) {
         out.push('### ' + flow.name + (flow.label && flow.label !== flow.name ? ' — ' + flow.label : ''));
         out.push('');
+        var flowSrc = sourceLine(flow.sourcePath);
+        if (flowSrc) out.push(flowSrc);
         out.push('- Process type: ' + (flow.processType || 'n/a'));
         out.push('- Status: ' + (flow.status || 'n/a'));
         out.push('- Object: ' + (flow.object || 'n/a'));
@@ -366,6 +459,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
     nodes.classes.forEach(function (cls) {
         out.push('### ' + cls.name);
         out.push('');
+        var clsSrc = sourceLine(cls.sourcePath);
+        if (clsSrc) out.push(clsSrc);
         if (cls.extendsClass) out.push('- Extends: ' + cls.extendsClass);
         if (cls.implementsList.length) out.push('- Implements: ' + cls.implementsList.join(', '));
         var sharing = cls.withoutSharing ? 'without sharing' : (cls.withSharing ? 'with sharing' : (cls.inheritedSharing ? 'inherited sharing' : 'unspecified'));
@@ -390,6 +485,12 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
         if (cls.soqlInLoop) out.push('- ⚠ SOQL detected inside a loop');
         var ubCls = usedByLine(reverseIndex, 'ApexClass', cls.name);
         if (ubCls) out.push(ubCls);
+        if (cls.sourcePath && cls.sourceContent) {
+            out.push('');
+            out.push('**Source:**');
+            out.push('');
+            out.push(renderSourceFile(cls.sourcePath, cls.sourceContent));
+        }
         out.push('');
     });
 
@@ -400,6 +501,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
     nodes.triggers.forEach(function (trg) {
         out.push('### ' + trg.name);
         out.push('');
+        var trgSrc = sourceLine(trg.sourcePath);
+        if (trgSrc) out.push(trgSrc);
         out.push('- Object: ' + (trg.object || 'n/a'));
         out.push('- Events: ' + trg.events.join(', '));
         if (trg.handlers.length) out.push('- Handler classes: ' + trg.handlers.join(', '));
@@ -408,6 +511,12 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
         if (trg.publishes.length) out.push('- Publishes platform events: ' + trg.publishes.join(', '));
         var ubTrg = usedByLine(reverseIndex, 'Trigger', trg.name);
         if (ubTrg) out.push(ubTrg);
+        if (trg.sourcePath && trg.sourceContent) {
+            out.push('');
+            out.push('**Source:**');
+            out.push('');
+            out.push(renderSourceFile(trg.sourcePath, trg.sourceContent));
+        }
         out.push('');
     });
 
@@ -425,6 +534,12 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
         if (lwc.childComponents.length) out.push('- Child components: ' + lwc.childComponents.join(', '));
         var ubLwc = usedByLine(reverseIndex, 'LWC', lwc.name);
         if (ubLwc) out.push(ubLwc);
+        if (lwc.sourceFiles && lwc.sourceFiles.length) {
+            out.push('');
+            out.push('**Source:**');
+            out.push('');
+            lwc.sourceFiles.forEach(function (sf) { out.push(renderSourceFile(sf.path, sf.content)); });
+        }
         out.push('');
     });
 
@@ -441,6 +556,12 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
         if (aura.apexMethods.length) out.push('- Apex methods called from controller.js: ' + aura.apexMethods.join(', '));
         var ubAura = usedByLine(reverseIndex, 'Aura', aura.name);
         if (ubAura) out.push(ubAura);
+        if (aura.sourceFiles && aura.sourceFiles.length) {
+            out.push('');
+            out.push('**Source:**');
+            out.push('');
+            aura.sourceFiles.forEach(function (sf) { out.push(renderSourceFile(sf.path, sf.content)); });
+        }
         out.push('');
     });
 
@@ -451,6 +572,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
     nodes.profiles.forEach(function (prof) {
         out.push('### ' + prof.name);
         out.push('');
+        var profSrc = sourceLine(prof.sourcePath);
+        if (profSrc) out.push(profSrc);
         out.push('- User license: ' + (prof.userLicense || 'n/a'));
         out.push('- Custom profile: ' + yesNo(prof.custom));
         if (prof.systemPermissions.length) out.push('- Enabled system permissions: ' + prof.systemPermissions.join(', '));
