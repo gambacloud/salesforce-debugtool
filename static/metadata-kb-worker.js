@@ -276,7 +276,13 @@ function yesNo(v) { return v ? 'Yes' : 'No'; }
 // with injected "line-number + tab" prefixes (same convention this toolchain's own
 // file-reading tools use), so an LLM/NotebookLM can quote or cite an exact line.
 function injectLineNumbers(content) {
-    return content.split(/\r?\n/).map(function (line, i) { return (i + 1) + '\t' + line; }).join('\n');
+    // Single-pass regex instead of split/map/join — avoids materializing two
+    // intermediate line-count-sized arrays, matters on multi-thousand-line
+    // Apex files. Normalize CRLF first so /^/gm (which only special-cases \n)
+    // doesn't leave a stray \r at the end of each numbered line.
+    var normalized = content.replace(/\r\n/g, '\n');
+    var lineNum = 1;
+    return normalized.replace(/^/gm, function () { return (lineNum++) + '\t'; });
 }
 function renderSourceFile(path, content) {
     return '<file path="' + path + '">\n' + injectLineNumbers(content) + '\n</file>';
