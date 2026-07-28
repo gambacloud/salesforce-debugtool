@@ -178,14 +178,20 @@ async function handleMessage(data) {
     });
     counts.aura = auraNodes.length;
 
+    var edges = P.buildDependencyEdges({
+        objects: nodes.objects, flows: nodes.flows, triggers: nodes.triggers,
+        classes: nodes.classes, lwc: lwcNodes, aura: auraNodes, profiles: nodes.profiles,
+    });
+
     var stats = {
         fileName: fileName,
         generatedAt: new Date().toISOString(),
         totalEntries: total,
         counts: counts,
     };
+    stats.counts.edges = edges.length;
 
-    var markdown = buildMarkdown(stats, nodes, lwcNodes, auraNodes);
+    var markdown = buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges);
 
     self.postMessage({ type: 'done', markdown: markdown, stats: stats });
 }
@@ -215,9 +221,36 @@ function mdTable(headers, rows) {
 
 function yesNo(v) { return v ? 'Yes' : 'No'; }
 
-function buildMarkdown(stats, nodes, lwcNodes, auraNodes) {
+var EDGE_LABELS = {
+    'trigger-handler': 'handled by', 'apex-call': 'calls', 'flow-invoke': 'invokes flow',
+    'executes-batch': 'executes batch', 'enqueues-job': 'enqueues job', 'publishes-event': 'publishes event',
+    'extends': 'extends', 'dml': 'DML on', 'query': 'queries', 'subflow': 'calls subflow',
+    'flow-apex': 'calls apex action', 'apex-import': 'imports apex', 'embeds-flow': 'embeds flow',
+    'child-component': 'uses component', 'apex-controller': 'uses controller',
+    'formula-ref': 'formula references', 'profile-access': 'grants access to',
+};
+function edgeLabel(type) { return EDGE_LABELS[type] || type; }
+
+function buildReverseIndex(edges) {
+    var index = {};
+    edges.forEach(function (e) {
+        var key = e.toType + '|' + e.to;
+        if (!index[key]) index[key] = [];
+        index[key].push({ from: e.from, fromType: e.fromType, type: e.type });
+    });
+    return index;
+}
+
+function usedByLine(reverseIndex, type, name) {
+    var incoming = reverseIndex[type + '|' + name];
+    if (!incoming || incoming.length === 0) return null;
+    return '- Used by: ' + incoming.map(function (i) { return i.from + ' (' + edgeLabel(i.type) + ')'; }).join(', ');
+}
+
+function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
     var c = stats.counts;
     var out = [];
+    var reverseIndex = buildReverseIndex(edges);
 
     out.push('# Salesforce Metadata Knowledge Base');
     out.push('');
@@ -235,7 +268,22 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes) {
         ['Lightning Web Components', c.lwc],
         ['Aura Components', c.aura],
         ['Profiles', c.profiles],
+        ['Dependency Edges', edges.length],
     ]));
+
+    // ── Dependency Graph ──
+    out.push('## Dependency Graph');
+    out.push('');
+    out.push('Relationships resolved between the components above (only edges whose target was actually found in this package — no unresolved/external guesses). Each entity\'s own section below also lists what depends on it under "Used by".');
+    out.push('');
+    if (edges.length === 0) {
+        out.push('_None found._\n');
+    } else {
+        out.push(mdTable(
+            ['From', 'From Type', 'Relationship', 'To', 'To Type'],
+            edges.map(function (e) { return [e.from, e.fromType, edgeLabel(e.type), e.to, e.toType]; })
+        ));
+    }
 
     // ── Custom Objects ──
     out.push('## Custom Objects');
@@ -278,6 +326,10 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes) {
                 relationships.map(function (r) { return [r.field, r.type, r.referenceTo]; })
             ));
         }
+
+        var ubObj = usedByLine(reverseIndex, 'CustomObject', obj.name);
+        if (ubObj) out.push(ubObj);
+        out.push('');
     });
 
     // ── Flows ──
@@ -302,6 +354,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes) {
                 out.push('  - ' + f.name + ': ' + mdCode(f.expression) + (f.usedInDecisions.length ? ' (used in: ' + f.usedInDecisions.join(', ') + ')' : ''));
             });
         }
+        var ubFlow = usedByLine(reverseIndex, 'Flow', flow.name);
+        if (ubFlow) out.push(ubFlow);
         out.push('');
     });
 
@@ -334,6 +388,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes) {
         if (cls.classCalls.length) out.push('- Calls classes: ' + cls.classCalls.join(', '));
         if (cls.dmlInLoop) out.push('- ⚠ DML detected inside a loop');
         if (cls.soqlInLoop) out.push('- ⚠ SOQL detected inside a loop');
+        var ubCls = usedByLine(reverseIndex, 'ApexClass', cls.name);
+        if (ubCls) out.push(ubCls);
         out.push('');
     });
 
@@ -350,6 +406,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes) {
         if (trg.flowInvoke.length) out.push('- Invokes flows: ' + trg.flowInvoke.join(', '));
         if (trg.batches.length) out.push('- Executes batches: ' + trg.batches.join(', '));
         if (trg.publishes.length) out.push('- Publishes platform events: ' + trg.publishes.join(', '));
+        var ubTrg = usedByLine(reverseIndex, 'Trigger', trg.name);
+        if (ubTrg) out.push(ubTrg);
         out.push('');
     });
 
@@ -365,6 +423,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes) {
         if (lwc.flowInvoke.length) out.push('- Flow.Interview invocations: ' + lwc.flowInvoke.join(', '));
         if (lwc.flowRefs.length) out.push('- Embedded flows (lightning-flow): ' + lwc.flowRefs.join(', '));
         if (lwc.childComponents.length) out.push('- Child components: ' + lwc.childComponents.join(', '));
+        var ubLwc = usedByLine(reverseIndex, 'LWC', lwc.name);
+        if (ubLwc) out.push(ubLwc);
         out.push('');
     });
 
@@ -379,6 +439,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes) {
         if (aura.flowRefs.length) out.push('- Embedded flows: ' + aura.flowRefs.join(', '));
         if (aura.childComponents.length) out.push('- Child components: ' + aura.childComponents.join(', '));
         if (aura.apexMethods.length) out.push('- Apex methods called from controller.js: ' + aura.apexMethods.join(', '));
+        var ubAura = usedByLine(reverseIndex, 'Aura', aura.name);
+        if (ubAura) out.push(ubAura);
         out.push('');
     });
 

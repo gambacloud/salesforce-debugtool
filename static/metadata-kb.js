@@ -118,6 +118,7 @@
             { label: 'LWC', value: c.lwc },
             { label: 'Aura', value: c.aura },
             { label: 'Profiles', value: c.profiles },
+            { label: 'Dependency Edges', value: c.edges },
         ];
         summaryGrid.innerHTML = tiles.map(function (t) {
             return '<div class="text-center bg-gray-50 dark:bg-gray-900/50 rounded-lg py-3">' +

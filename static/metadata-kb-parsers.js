@@ -598,6 +598,102 @@
         };
     }
 
+    // ── Dependency graph (new) ──────────────────────────────────────────────
+    // Resolves the relationships each parser already extracts (class calls,
+    // trigger handlers, flow subflows/apex actions, formula cross-object
+    // refs, LWC/Aura apex imports, profile class access, ...) into a single
+    // validated edge list: an edge is only kept if its target name actually
+    // matches a parsed entity, so this is a real dependency graph, not a
+    // dump of every regex hit (which would be noisy — see caveats on
+    // parseApexClass's classCalls).
+    function buildDependencyEdges(allNodes) {
+        var registry = {};
+        function register(list, type) {
+            (list || []).forEach(function (n) {
+                if (n && n.name) registry[n.name.toLowerCase()] = { name: n.name, type: type };
+            });
+        }
+        register(allNodes.objects, 'CustomObject');
+        register(allNodes.flows, 'Flow');
+        register(allNodes.triggers, 'Trigger');
+        register(allNodes.classes, 'ApexClass');
+        register(allNodes.lwc, 'LWC');
+        register(allNodes.aura, 'Aura');
+
+        var edges = [];
+        function addEdge(fromName, fromType, toNameRaw, edgeType) {
+            if (!toNameRaw) return;
+            var toName = toNameRaw;
+            var resolved = registry[toName.toLowerCase()];
+            if (!resolved) {
+                var base = toName.split('.')[0];
+                var baseResolved = registry[base.toLowerCase()];
+                if (baseResolved) { resolved = baseResolved; toName = base; }
+            }
+            if (!resolved) return; // drop unresolved/external refs — keeps this a real graph, not a call dump
+            if (resolved.name === fromName && resolved.type === fromType) return; // no self-edges
+            edges.push({ from: fromName, fromType: fromType, to: resolved.name, toType: resolved.type, type: edgeType });
+        }
+
+        (allNodes.triggers || []).forEach(function (t) {
+            (t.handlers || []).forEach(function (h) { addEdge(t.name, 'Trigger', h, 'trigger-handler'); });
+            (t.classCalls || []).forEach(function (c) { if ((t.handlers || []).indexOf(c) === -1) addEdge(t.name, 'Trigger', c, 'apex-call'); });
+            (t.flowInvoke || []).forEach(function (f) { addEdge(t.name, 'Trigger', f, 'flow-invoke'); });
+            (t.batches || []).forEach(function (b) { addEdge(t.name, 'Trigger', b, 'executes-batch'); });
+            (t.publishes || []).forEach(function (p) { addEdge(t.name, 'Trigger', p, 'publishes-event'); });
+        });
+
+        (allNodes.classes || []).forEach(function (c) {
+            if (c.extendsClass) addEdge(c.name, 'ApexClass', c.extendsClass, 'extends');
+            (c.classCalls || []).forEach(function (cc) { addEdge(c.name, 'ApexClass', cc, 'apex-call'); });
+            (c.batchCalls || []).forEach(function (b) { addEdge(c.name, 'ApexClass', b, 'executes-batch'); });
+            (c.queueableCalls || []).forEach(function (q) { addEdge(c.name, 'ApexClass', q, 'enqueues-job'); });
+            (c.flowInvoke || []).forEach(function (f) { addEdge(c.name, 'ApexClass', f, 'flow-invoke'); });
+            (c.publishes || []).forEach(function (p) { addEdge(c.name, 'ApexClass', p, 'publishes-event'); });
+            (c.dmlObjects || []).forEach(function (o) { addEdge(c.name, 'ApexClass', o, 'dml'); });
+        });
+
+        (allNodes.flows || []).forEach(function (f) {
+            (f.subflows || []).forEach(function (s) { addEdge(f.name, 'Flow', s, 'subflow'); });
+            (f.actionCalls || []).forEach(function (a) {
+                if (a.type && a.type.toLowerCase() === 'apex' && a.name) addEdge(f.name, 'Flow', a.name, 'flow-apex');
+            });
+            (f.dmlObjects || []).forEach(function (o) { addEdge(f.name, 'Flow', o, 'dml'); });
+            (f.queryObjects || []).forEach(function (o) { addEdge(f.name, 'Flow', o, 'query'); });
+        });
+
+        (allNodes.lwc || []).forEach(function (l) {
+            (l.apexImports || []).forEach(function (a) { if (a.class) addEdge(l.name, 'LWC', a.class, 'apex-import'); });
+            (l.flowInvoke || []).forEach(function (f) { addEdge(l.name, 'LWC', f, 'flow-invoke'); });
+            (l.flowRefs || []).forEach(function (f) { addEdge(l.name, 'LWC', f, 'embeds-flow'); });
+            (l.childComponents || []).forEach(function (c) { addEdge(l.name, 'LWC', c, 'child-component'); });
+        });
+
+        (allNodes.aura || []).forEach(function (a) {
+            if (a.controller) addEdge(a.name, 'Aura', a.controller, 'apex-controller');
+            (a.flowRefs || []).forEach(function (f) { addEdge(a.name, 'Aura', f, 'embeds-flow'); });
+            (a.childComponents || []).forEach(function (c) { addEdge(a.name, 'Aura', c, 'child-component'); });
+        });
+
+        (allNodes.objects || []).forEach(function (o) {
+            (o.formulaEdges || []).forEach(function (fe) { addEdge(o.name, 'CustomObject', fe.to, 'formula-ref'); });
+        });
+
+        (allNodes.profiles || []).forEach(function (p) {
+            (p.classAccesses || []).forEach(function (ca) { addEdge(p.name, 'Profile', ca.apexClass, 'profile-access'); });
+        });
+
+        var seen = new Set();
+        edges = edges.filter(function (e) {
+            var key = e.from + '|' + e.to + '|' + e.type;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        return edges;
+    }
+
     self.SfdcParsers = {
         parseCustomObject: parseCustomObject,
         parseFormulaFields: parseFormulaFields,
@@ -609,5 +705,6 @@
         parseAuraCmp: parseAuraCmp,
         parseAuraController: parseAuraController,
         parseProfile: parseProfile,
+        buildDependencyEdges: buildDependencyEdges,
     };
 })();
