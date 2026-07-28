@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metadata Knowledge Base — Salesforce Deployer Pro</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
+                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a',
+                        },
+                        salesforce: '#00a1e0'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .dropzone-active {
+            border-color: #3b82f6;
+            background-color: rgba(59, 130, 246, 0.06);
+        }
+
+        pre#mdPreview {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 min-h-screen flex flex-col">
+
+    <nav class="flex-none bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="/deploytool"
+                    class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">←
+                    Salesforce Deployer Pro</a>
+                <span class="text-gray-300 dark:text-gray-600">/</span>
+                <span class="font-semibold text-sm">🧠 Metadata Knowledge Base</span>
+            </div>
+            <button id="themeToggleBtn"
+                class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none">
+                <svg id="themeToggleLightIcon" class="hidden w-5 h-5" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+                    </path>
+                </svg>
+                <svg id="themeToggleDarkIcon" class="hidden w-5 h-5" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                    </path>
+                </svg>
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-1 max-w-4xl mx-auto w-full px-4 py-10">
+
+        <div class="text-center mb-8">
+            <h1 class="text-2xl font-bold mb-2">Turn your Salesforce metadata into an LLM knowledge base</h1>
+            <p class="text-gray-500 dark:text-gray-400 text-sm max-w-xl mx-auto">
+                Drop a Metadata API ZIP (objects, formulas, flows, Apex, LWC/Aura, profiles) below. Everything is
+                parsed entirely in your browser — nothing is uploaded anywhere. You'll get a Markdown document ready
+                to paste into
+                <a href="https://notebooklm.google.com" target="_blank" rel="noopener"
+                    class="text-primary-600 dark:text-primary-400 hover:underline">NotebookLM</a>.
+            </p>
+        </div>
+
+        <!-- Drop zone -->
+        <div id="dropzoneView">
+            <div id="dropzone"
+                class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-12 text-center cursor-pointer transition-colors hover:border-primary-400 dark:hover:border-primary-500">
+                <svg class="w-10 h-10 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M12 12v9m0-9l-3 3m3-3l3 3" />
+                </svg>
+                <p class="font-medium">Drag &amp; drop your metadata ZIP here</p>
+                <p class="text-sm text-gray-400 mt-1">or click to browse</p>
+                <input id="fileInput" type="file" accept=".zip" class="hidden">
+            </div>
+            <p id="errorBanner"
+                class="hidden mt-4 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
+            </p>
+        </div>
+
+        <!-- Progress -->
+        <div id="progressView" class="hidden">
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-8">
+                <p id="progressLabel" class="text-sm font-medium mb-3">Reading ZIP…</p>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                    <div id="progressBar" class="bg-primary-600 h-2.5 rounded-full transition-all duration-150"
+                        style="width: 0%"></div>
+                </div>
+                <p id="progressCount" class="text-xs text-gray-400 mt-2"></p>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="resultsView" class="hidden">
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 mb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold">✅ Parsed <span id="resultFileName"></span></h2>
+                    <button id="btnStartOver"
+                        class="text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">Parse
+                        another file</button>
+                </div>
+                <div id="summaryGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6"></div>
+                <div class="flex flex-wrap gap-3">
+                    <button id="btnDownload"
+                        class="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors">
+                        ⬇ Download LLM Knowledge Base
+                    </button>
+                    <button id="btnCopy"
+                        class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium rounded-lg transition-colors">
+                        📋 Copy to Clipboard
+                    </button>
+                </div>
+            </div>
+
+            <details class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+                <summary class="cursor-pointer select-none px-6 py-4 text-sm font-medium">Preview Markdown</summary>
+                <pre id="mdPreview"
+                    class="text-xs px-6 pb-6 max-h-[32rem] overflow-y-auto font-mono text-gray-700 dark:text-gray-300"></pre>
+            </details>
+        </div>
+
+    </main>
+
+    <script src="/static/metadata-kb.js"></script>
+    <script>
+        // Same dark-mode convention as the main app (shared 'color-theme' key).
+        const themeToggleDarkIcon = document.getElementById('themeToggleDarkIcon');
+        const themeToggleLightIcon = document.getElementById('themeToggleLightIcon');
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+
+        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            themeToggleLightIcon.classList.remove('hidden');
+        } else {
+            themeToggleDarkIcon.classList.remove('hidden');
+        }
+
+        themeToggleBtn.addEventListener('click', function () {
+            themeToggleDarkIcon.classList.toggle('hidden');
+            themeToggleLightIcon.classList.toggle('hidden');
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('color-theme', isDark ? 'dark' : 'light');
+        });
+    </script>
+</body>
+
+</html>
