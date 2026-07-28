@@ -70,8 +70,13 @@ async function handleMessage(data) {
         // ── Flows ── (".flow" is the classic Metadata API retrieve format; ".flow-meta.xml" is SFDX source format)
         if (lower.endsWith('.flow-meta.xml') || lower.endsWith('.flow') || (lower.includes('/flows/') && lower.endsWith('.xml'))) {
             var flowName = filename.replace(/\.flow-meta\.xml$/i, '').replace(/\.flow$/i, '').replace(/\.xml$/i, '');
-            var flowNode = P.parseFlow(flowName, await file.async('string'));
-            if (flowNode) { flowNode.sourcePath = entryPath; nodes.flows.push(flowNode); counts.flows++; }
+            var flowXml = await file.async('string');
+            var flowNode = P.parseFlow(flowName, flowXml);
+            if (flowNode) {
+                flowNode.sourcePath = entryPath;
+                flowNode.mermaid = P.buildFlowMermaid(flowXml);
+                nodes.flows.push(flowNode); counts.flows++;
+            }
             progress('Flows');
             continue;
         }
@@ -449,6 +454,14 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
         }
         var ubFlow = usedByLine(reverseIndex, 'Flow', flow.name);
         if (ubFlow) out.push(ubFlow);
+        if (flow.mermaid) {
+            out.push('');
+            out.push('**Logic:**');
+            out.push('');
+            out.push('```mermaid');
+            out.push(flow.mermaid);
+            out.push('```');
+        }
         out.push('');
     });
 

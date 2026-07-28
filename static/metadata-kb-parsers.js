@@ -301,6 +301,143 @@
         };
     }
 
+    // ── flow.js: control-flow graph as a Mermaid diagram (new) ────────────────
+    // Walks the actual connector/rule graph in the Flow XML (the same data
+    // Flow Builder uses to draw the canvas) instead of just listing element
+    // counts — so this represents the flow's real logic and branching.
+    function sanitizeMermaidId(name) { return String(name || 'n').replace(/[^A-Za-z0-9_]/g, '_'); }
+    function sanitizeMermaidLabel(text) {
+        if (!text) return '';
+        return String(text).replace(/"/g, "'").replace(/[\r\n]+/g, ' ').replace(/\|/g, '/').trim();
+    }
+    function connectorTarget(connectorArr) {
+        var c = first(connectorArr);
+        if (!c) return null;
+        return str(first(c.targetReference));
+    }
+
+    var MERMAID_SHAPES = {
+        stadium: ['(["', '"])'],
+        diamond: ['{"', '"}'],
+        hexagon: ['{{"', '"}}'],
+        subroutine: ['[["', '"]]'],
+        parallelogram: ['[/"', '"/]'],
+        rect: ['["', '"]'],
+    };
+
+    function buildFlowMermaid(xml) {
+        var doc;
+        try { doc = xmlParser.parse(xml); } catch (e) { return null; }
+        if (!doc || !doc.Flow) return null;
+        var flow = doc.Flow[0] || {};
+
+        // ── Pass 1: index every element's label + shape, regardless of category ──
+        var elementIndex = {};
+        function indexElements(list, shape, labelPrefix) {
+            (list || []).forEach(function (el) {
+                var name = str(first(el.name));
+                if (!name) return;
+                var label = str(first(el.label)) || name;
+                elementIndex[name] = { label: (labelPrefix || '') + label, shape: shape };
+            });
+        }
+        indexElements(flow.decisions, 'diamond', '');
+        indexElements(flow.loops, 'hexagon', '');
+        indexElements(flow.screens, 'parallelogram', '');
+        indexElements(flow.assignments, 'rect', 'Assign: ');
+        indexElements(flow.recordCreates, 'rect', 'Create: ');
+        indexElements(flow.recordUpdates, 'rect', 'Update: ');
+        indexElements(flow.recordDeletes, 'rect', 'Delete: ');
+        indexElements(flow.recordLookups, 'rect', 'Get: ');
+        indexElements(flow.recordRollbacks, 'rect', 'Rollback: ');
+        indexElements(flow.subflows, 'subroutine', '');
+        indexElements(flow.actionCalls, 'rect', 'Action: ');
+        indexElements(flow.waits, 'rect', 'Wait: ');
+        indexElements(flow.collectionProcessors, 'rect', '');
+
+        elementIndex['End'] = { label: 'End', shape: 'stadium' };
+
+        var declared = new Set();
+        function nodeRef(name) {
+            var id = sanitizeMermaidId(name);
+            if (declared.has(id)) return id;
+            declared.add(id);
+            var info = elementIndex[name];
+            if (!info) return id; // referenced but never indexed — plain id, Mermaid defaults to a rectangle
+            var shape = MERMAID_SHAPES[info.shape] || MERMAID_SHAPES.rect;
+            return id + shape[0] + sanitizeMermaidLabel(info.label) + shape[1];
+        }
+        function edge(fromName, toName, label, dashed) {
+            var arrow = dashed ? '-.->' : '-->';
+            var mid = label ? (dashed ? '-. "' + sanitizeMermaidLabel(label) + '" .->' : '-- "' + sanitizeMermaidLabel(label) + '" -->') : arrow;
+            lines.push('  ' + nodeRef(fromName) + ' ' + mid + ' ' + nodeRef(toName));
+        }
+        function edgeToEndOrTarget(fromName, target, label) {
+            edge(fromName, target || 'End', label);
+        }
+
+        var lines = ['graph TD'];
+
+        // ── Start ──
+        var start = first(flow.start);
+        var startTarget = (start && connectorTarget(start.connector)) || str(first(flow.startElementReference));
+        var startObject = str(start && start.object && start.object[0]) || str(first(flow.object));
+        var startTriggerType = str(start && start.triggerType && start.triggerType[0]) || str(first(flow.triggerType));
+        var startLabel = startObject ? ('Start: ' + startObject + (startTriggerType ? ' (' + startTriggerType + ')' : '')) : 'Start';
+        elementIndex['Start'] = { label: startLabel, shape: 'stadium' };
+        edgeToEndOrTarget('Start', startTarget);
+
+        // ── Decisions: one edge per rule (real branch labels), plus the default/else branch ──
+        (flow.decisions || []).forEach(function (d) {
+            var dName = str(first(d.name));
+            if (!dName) return;
+            (d.rules || []).forEach(function (r) {
+                var rLabel = str(first(r.label)) || str(first(r.name)) || 'Yes';
+                var rTarget = connectorTarget(r.connector);
+                edgeToEndOrTarget(dName, rTarget, rLabel);
+            });
+            var defaultTarget = connectorTarget(d.defaultConnector);
+            var defaultLabel = str(first(d.defaultConnectorLabel)) || 'Otherwise';
+            if (defaultTarget) edge(dName, defaultTarget, defaultLabel);
+        });
+
+        // ── Loops: "For Each" vs "Done" branches ──
+        (flow.loops || []).forEach(function (l) {
+            var lName = str(first(l.name));
+            if (!lName) return;
+            var nextTarget = connectorTarget(l.nextValueConnector);
+            var doneTarget = connectorTarget(l.noMoreValuesConnector);
+            if (nextTarget) edge(lName, nextTarget, 'For Each');
+            if (doneTarget) edge(lName, doneTarget, 'Done');
+        });
+
+        // ── Everything else: a single outgoing connector (+ optional fault path) ──
+        function simpleCategory(list) {
+            (list || []).forEach(function (el) {
+                var name = str(first(el.name));
+                if (!name) return;
+                var target = connectorTarget(el.connector);
+                edgeToEndOrTarget(name, target);
+                var faultTarget = connectorTarget(el.faultConnector);
+                if (faultTarget) edge(name, faultTarget, 'Fault', true);
+            });
+        }
+        simpleCategory(flow.screens);
+        simpleCategory(flow.assignments);
+        simpleCategory(flow.recordCreates);
+        simpleCategory(flow.recordUpdates);
+        simpleCategory(flow.recordDeletes);
+        simpleCategory(flow.recordLookups);
+        simpleCategory(flow.recordRollbacks);
+        simpleCategory(flow.subflows);
+        simpleCategory(flow.actionCalls);
+        simpleCategory(flow.waits);
+        simpleCategory(flow.collectionProcessors);
+
+        if (lines.length <= 1) return null; // nothing but "graph TD" — not worth rendering
+        return lines.join('\n');
+    }
+
     // ── trigger.js ───────────────────────────────────────────────────────────
     function parseTrigger(name, code) {
         var sig = code.match(/trigger\s+(\w+)\s+on\s+(\w+)\s*\(([^)]+)\)/i);
@@ -703,6 +840,7 @@
         parseCustomObject: parseCustomObject,
         parseFormulaFields: parseFormulaFields,
         parseFlow: parseFlow,
+        buildFlowMermaid: buildFlowMermaid,
         parseTrigger: parseTrigger,
         parseApexClass: parseApexClass,
         parseLwcJs: parseLwcJs,
