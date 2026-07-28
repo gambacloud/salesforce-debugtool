@@ -13,7 +13,19 @@
 (function () {
     'use strict';
 
-    var xmlParser = new XMLParser({ ignoreAttributes: false, isArray: function () { return true; } });
+    // The fast-xml-parser CDN/UMD bundle's export shape has varied across
+    // versions/builds (bare class, {XMLParser}, or webpack-style {default}).
+    // Resolve defensively instead of assuming one shape.
+    function resolveXMLParserCtor() {
+        if (typeof XMLParser === 'function') return XMLParser;
+        if (XMLParser && typeof XMLParser.XMLParser === 'function') return XMLParser.XMLParser;
+        if (XMLParser && typeof XMLParser.default === 'function') return XMLParser.default;
+        if (XMLParser && XMLParser.default && typeof XMLParser.default.XMLParser === 'function') return XMLParser.default.XMLParser;
+        throw new Error('Could not resolve the XMLParser constructor from the fast-xml-parser bundle');
+    }
+
+    var XMLParserCtor = resolveXMLParserCtor();
+    var xmlParser = new XMLParserCtor({ ignoreAttributes: false, isArray: function () { return true; } });
 
     function str(v) { return typeof v === 'string' ? v.trim() : (v != null ? String(v).trim() : null); }
     function first(v) { return Array.isArray(v) ? v[0] : v; }

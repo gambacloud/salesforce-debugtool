@@ -61,9 +61,9 @@ async function handleMessage(data) {
         var lower = entryPath.toLowerCase();
         var filename = entryPath.split('/').pop();
 
-        // ── Flows ──
-        if (lower.endsWith('.flow-meta.xml') || (lower.includes('/flows/') && lower.endsWith('.xml'))) {
-            var flowName = filename.replace(/\.flow-meta\.xml$/i, '').replace(/\.xml$/i, '');
+        // ── Flows ── (".flow" is the classic Metadata API retrieve format; ".flow-meta.xml" is SFDX source format)
+        if (lower.endsWith('.flow-meta.xml') || lower.endsWith('.flow') || (lower.includes('/flows/') && lower.endsWith('.xml'))) {
+            var flowName = filename.replace(/\.flow-meta\.xml$/i, '').replace(/\.flow$/i, '').replace(/\.xml$/i, '');
             var flowNode = P.parseFlow(flowName, await file.async('string'));
             if (flowNode) { nodes.flows.push(flowNode); counts.flows++; }
             progress('Flows');
@@ -89,9 +89,9 @@ async function handleMessage(data) {
             continue;
         }
 
-        // ── Custom Objects / Platform Events ──
-        if (lower.endsWith('.object-meta.xml') || (lower.includes('/objects/') && lower.endsWith('.xml'))) {
-            var objName = filename.replace(/\.object-meta\.xml$/i, '').replace(/\.xml$/i, '');
+        // ── Custom Objects / Platform Events ── (".object" is the classic Metadata API retrieve format)
+        if (lower.endsWith('.object-meta.xml') || lower.endsWith('.object') || (lower.includes('/objects/') && lower.endsWith('.xml'))) {
+            var objName = filename.replace(/\.object-meta\.xml$/i, '').replace(/\.object$/i, '').replace(/\.xml$/i, '');
             var isPlatformEvent = objName.endsWith('__e') || lower.includes('/platformevents/');
             var objNode = P.parseCustomObject(objName, await file.async('string'), isPlatformEvent);
             if (objNode) {
@@ -102,9 +102,9 @@ async function handleMessage(data) {
             continue;
         }
 
-        // ── Profiles ──
-        if (lower.endsWith('.profile-meta.xml') || (lower.includes('/profiles/') && lower.endsWith('.xml'))) {
-            var profName = filename.replace(/\.profile-meta\.xml$/i, '').replace(/\.xml$/i, '');
+        // ── Profiles ── (".profile" is the classic Metadata API retrieve format)
+        if (lower.endsWith('.profile-meta.xml') || lower.endsWith('.profile') || (lower.includes('/profiles/') && lower.endsWith('.xml'))) {
+            var profName = filename.replace(/\.profile-meta\.xml$/i, '').replace(/\.profile$/i, '').replace(/\.xml$/i, '');
             var profNode = P.parseProfile(profName, await file.async('string'));
             if (profNode) { nodes.profiles.push(profNode); counts.profiles++; }
             progress('Profiles');
