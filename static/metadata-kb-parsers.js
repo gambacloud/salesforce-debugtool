@@ -735,6 +735,46 @@
         };
     }
 
+    // ── customMetadata.js (new) ─────────────────────────────────────────────
+    // Custom Metadata records — e.g. Type.RecordName.md(-meta.xml) — are where
+    // a lot of frameworks (feature flags, trigger-handler registries, FFLIB
+    // config, integration settings) keep their actual configuration rows.
+    function valText(v) {
+        var x = first(v);
+        if (x === null || x === undefined) return null;
+        if (typeof x === 'object') return str(x['#text']); // <value xsi:type="...">text</value> parses as {@_xsi:type, #text}
+        return str(x);
+    }
+
+    function parseCustomMetadataRecord(name, xml) {
+        var doc;
+        try { doc = xmlParser.parse(xml); } catch (e) { return null; }
+        if (!doc || !doc.CustomMetadata) return null;
+        var cm = doc.CustomMetadata[0] || {};
+
+        // Filename convention is "TypeName.RecordDeveloperName" (type API name without the __mdt suffix).
+        var parts = name.split('.');
+        var metadataType = parts.length > 1 ? parts[0] + '__mdt' : null;
+        var developerName = parts.length > 1 ? parts.slice(1).join('.') : name;
+
+        var label = str(first(cm.label)) || developerName;
+        var isProtected = boolStr(first(cm.protected));
+
+        var values = (cm.values || []).map(function (v) {
+            return { field: str(first(v.field)), value: valText(v.value) };
+        }).filter(function (v) { return v.field; });
+
+        return {
+            name: name,
+            type: 'CustomMetadataRecord',
+            metadataType: metadataType,
+            developerName: developerName,
+            label: label,
+            protected: isProtected,
+            values: values,
+        };
+    }
+
     // ── Dependency graph (new) ──────────────────────────────────────────────
     // Resolves the relationships each parser already extracts (class calls,
     // trigger handlers, flow subflows/apex actions, formula cross-object
@@ -848,6 +888,7 @@
         parseAuraCmp: parseAuraCmp,
         parseAuraController: parseAuraController,
         parseProfile: parseProfile,
+        parseCustomMetadataRecord: parseCustomMetadataRecord,
         buildDependencyEdges: buildDependencyEdges,
     };
 })();

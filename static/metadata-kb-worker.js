@@ -51,12 +51,12 @@ async function handleMessage(data) {
     }
 
     var P = self.SfdcParsers;
-    var nodes = { objects: [], flows: [], triggers: [], classes: [], profiles: [] };
+    var nodes = { objects: [], flows: [], triggers: [], classes: [], profiles: [], customMetadata: [] };
     var lwcMap = {};
     var auraMap = {};
     var counts = {
-        objects: 0, events: 0, flows: 0, triggers: 0, classes: 0,
-        lwc: 0, aura: 0, profiles: 0, skipped: 0,
+        objects: 0, events: 0, customMetadataTypes: 0, flows: 0, triggers: 0, classes: 0,
+        lwc: 0, aura: 0, profiles: 0, customMetadata: 0, skipped: 0,
     };
 
     for (var i = 0; i < entries.length; i++) {
@@ -110,15 +110,19 @@ async function handleMessage(data) {
             continue;
         }
 
-        // ── Custom Objects / Platform Events ── (".object" is the classic Metadata API retrieve format)
+        // ── Custom Objects / Platform Events / Custom Metadata Types ── (".object" is the classic Metadata API retrieve format)
         if (lower.endsWith('.object-meta.xml') || lower.endsWith('.object') || (lower.includes('/objects/') && lower.endsWith('.xml'))) {
             var objName = filename.replace(/\.object-meta\.xml$/i, '').replace(/\.object$/i, '').replace(/\.xml$/i, '');
             var isPlatformEvent = objName.endsWith('__e') || lower.includes('/platformevents/');
+            var isCustomMetadataType = objName.endsWith('__mdt');
             var objNode = P.parseCustomObject(objName, await file.async('string'), isPlatformEvent);
             if (objNode) {
+                if (isCustomMetadataType) objNode.type = 'CustomMetadataType';
                 objNode.sourcePath = entryPath;
                 nodes.objects.push(objNode);
-                if (isPlatformEvent) counts.events++; else counts.objects++;
+                if (isPlatformEvent) counts.events++;
+                else if (isCustomMetadataType) counts.customMetadataTypes++;
+                else counts.objects++;
             }
             progress('Custom Objects');
             continue;
@@ -130,6 +134,19 @@ async function handleMessage(data) {
             var profNode = P.parseProfile(profName, await file.async('string'));
             if (profNode) { profNode.sourcePath = entryPath; nodes.profiles.push(profNode); counts.profiles++; }
             progress('Profiles');
+            continue;
+        }
+
+        // ── Custom Metadata Records ── (".md" is the classic Metadata API retrieve format, ".md-meta.xml" is SFDX source format)
+        // This is where a lot of framework config actually lives (feature flags, trigger-handler
+        // registries, integration settings) — easy to miss since it's not "code" or a standard object.
+        // Path-segment check (not a "/customMetadata/" substring) since the folder may sit at the ZIP root with no wrapping directory.
+        var isInCustomMetadataFolder = lower.split('/').indexOf('custommetadata') !== -1;
+        if (lower.endsWith('.md-meta.xml') || (lower.endsWith('.md') && isInCustomMetadataFolder) || (isInCustomMetadataFolder && lower.endsWith('.xml'))) {
+            var cmdName = filename.replace(/\.md-meta\.xml$/i, '').replace(/\.md$/i, '').replace(/\.xml$/i, '');
+            var cmdNode = P.parseCustomMetadataRecord(cmdName, await file.async('string'));
+            if (cmdNode) { cmdNode.sourcePath = entryPath; nodes.customMetadata.push(cmdNode); counts.customMetadata++; }
+            progress('Custom Metadata');
             continue;
         }
 
@@ -302,6 +319,9 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
 
     out.push('# Salesforce Metadata Knowledge Base');
     out.push('');
+    out.push('This document is a structured dump of a Salesforce org\'s metadata — Apex classes/triggers, Flows (with control-flow diagrams), Custom Objects/Fields/Formulas, Custom Metadata Types & Records, LWC/Aura components, and Profile permissions.');
+    out.push('Start with the Source Manifest and Dependency Graph sections to find what\'s relevant, then use the numbered `<file path="...">` blocks under each component to cite exact source lines.');
+    out.push('');
     out.push('- Generated: ' + stats.generatedAt);
     out.push('- Source ZIP: ' + stats.fileName);
     out.push('');
@@ -310,12 +330,14 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
     out.push(mdTable(['Type', 'Count'], [
         ['Custom Objects', c.objects],
         ['Platform Events', c.events],
+        ['Custom Metadata Types', c.customMetadataTypes],
         ['Flows', c.flows],
         ['Apex Classes', c.classes],
         ['Apex Triggers', c.triggers],
         ['Lightning Web Components', c.lwc],
         ['Aura Components', c.aura],
         ['Profiles', c.profiles],
+        ['Custom Metadata Records', c.customMetadata],
         ['Dependency Edges', edges.length],
     ]));
 
@@ -384,7 +406,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
     out.push('');
     if (nodes.objects.length === 0) out.push('_None found._\n');
     nodes.objects.forEach(function (obj) {
-        out.push('### ' + obj.name + (obj.label && obj.label !== obj.name ? ' — ' + obj.label : '') + (obj.type === 'PlatformEvent' ? ' _(Platform Event)_' : ''));
+        var objTypeTag = obj.type === 'PlatformEvent' ? ' _(Platform Event)_' : (obj.type === 'CustomMetadataType' ? ' _(Custom Metadata Type)_' : '');
+        out.push('### ' + obj.name + (obj.label && obj.label !== obj.name ? ' — ' + obj.label : '') + objTypeTag);
         out.push('');
         if (obj.plural) out.push('Plural label: ' + obj.plural);
         var objSrc = sourceLine(obj.sourcePath);
@@ -615,6 +638,23 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
         if (prof.tabVisibilities.length) out.push('- Tab visibility: ' + prof.tabVisibilities.map(function (t) { return t.tab + ' (' + t.visibility + ')'; }).join(', '));
         if (prof.recordTypeVisibilities.length) out.push('- Record type visibility: ' + prof.recordTypeVisibilities.map(function (r) { return r.recordType + (r.visible ? ' (visible' + (r.isDefault ? ', default' : '') + ')' : ' (hidden)'); }).join(', '));
         out.push('');
+    });
+
+    // ── Custom Metadata Records ──
+    out.push('## Custom Metadata Records');
+    out.push('');
+    out.push('Configuration rows for Custom Metadata Types — often where framework/feature-flag/integration settings actually live, distinct from the type definitions listed under Custom Objects above.');
+    out.push('');
+    if (nodes.customMetadata.length === 0) out.push('_None found._\n');
+    nodes.customMetadata.forEach(function (cmd) {
+        out.push('### ' + cmd.name + (cmd.label && cmd.label !== cmd.developerName ? ' — ' + cmd.label : ''));
+        out.push('');
+        var cmdSrc = sourceLine(cmd.sourcePath);
+        if (cmdSrc) out.push(cmdSrc);
+        if (cmd.metadataType) out.push('- Metadata Type: ' + cmd.metadataType);
+        out.push('- Protected: ' + yesNo(cmd.protected));
+        out.push('');
+        out.push(mdTable(['Field', 'Value'], cmd.values.map(function (v) { return [v.field, v.value]; })));
     });
 
     return out.join('\n');

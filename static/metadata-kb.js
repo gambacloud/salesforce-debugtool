@@ -112,12 +112,14 @@
         var tiles = [
             { label: 'Custom Objects', value: c.objects },
             { label: 'Platform Events', value: c.events },
+            { label: 'Custom Metadata Types', value: c.customMetadataTypes },
             { label: 'Flows', value: c.flows },
             { label: 'Apex Classes', value: c.classes },
             { label: 'Apex Triggers', value: c.triggers },
             { label: 'LWC', value: c.lwc },
             { label: 'Aura', value: c.aura },
             { label: 'Profiles', value: c.profiles },
+            { label: 'Custom Metadata Records', value: c.customMetadata },
             { label: 'Dependency Edges', value: c.edges },
         ];
         summaryGrid.innerHTML = tiles.map(function (t) {
