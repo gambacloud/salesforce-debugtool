@@ -26,6 +26,11 @@
     var btnCopy = document.getElementById('btnCopy');
     var btnStartOver = document.getElementById('btnStartOver');
 
+    var btnHowToGetZip = document.getElementById('btnHowToGetZip');
+    var howToModal = document.getElementById('howToModal');
+    var howToModalBg = document.getElementById('howToModalBg');
+    var btnCloseHowTo = document.getElementById('btnCloseHowTo');
+
     var currentMarkdown = '';
     var currentStats = null;
 
@@ -195,4 +200,15 @@
     });
 
     btnStartOver.addEventListener('click', resetToDropzone);
+
+    // ── "Where do I get this ZIP?" modal ────────────────────────────────────
+    function openHowTo() { howToModal.classList.remove('hidden'); }
+    function closeHowTo() { howToModal.classList.add('hidden'); }
+
+    btnHowToGetZip.addEventListener('click', openHowTo);
+    btnCloseHowTo.addEventListener('click', closeHowTo);
+    howToModalBg.addEventListener('click', closeHowTo);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !howToModal.classList.contains('hidden')) closeHowTo();
+    });
 })();

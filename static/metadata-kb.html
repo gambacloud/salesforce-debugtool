@@ -87,6 +87,62 @@
                 <a href="https://notebooklm.google.com" target="_blank" rel="noopener"
                     class="text-primary-600 dark:text-primary-400 hover:underline">NotebookLM</a>.
             </p>
+            <button id="btnHowToGetZip" type="button"
+                class="mt-3 text-sm text-primary-600 dark:text-primary-400 hover:underline inline-flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Where do I get this ZIP?
+            </button>
+        </div>
+
+        <!-- How-to-get-a-ZIP modal -->
+        <div id="howToModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div id="howToModalBg" class="absolute inset-0 bg-black/50"></div>
+            <div
+                class="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-lg">Where do I get a metadata ZIP?</h3>
+                    <button id="btnCloseHowTo"
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">✕</button>
+                </div>
+
+                <div class="space-y-5 text-sm">
+                    <div>
+                        <p class="font-medium mb-1">🔌 Option 1 — SFDC Inspector Reloaded (Chrome extension)</p>
+                        <p class="text-gray-500 dark:text-gray-400">
+                            Install <a href="https://chromewebstore.google.com/detail/sfdc-inspector-reloaded/aodjmnfhjibkbephakljplhcnfgockok"
+                                target="_blank" rel="noopener"
+                                class="text-primary-600 dark:text-primary-400 hover:underline">SFDC Inspector
+                                Reloaded</a>, open it while logged into your Salesforce org, then use its
+                            <strong>Metadata Retrieve</strong> tool to pick the components/types you want and
+                            download the result as a ZIP. This produces a classic Metadata API package
+                            (an <code class="text-xs bg-gray-100 dark:bg-gray-900 px-1 rounded">unpackaged/</code>
+                            folder with <code class="text-xs bg-gray-100 dark:bg-gray-900 px-1 rounded">.object</code>,
+                            <code class="text-xs bg-gray-100 dark:bg-gray-900 px-1 rounded">.profile</code>,
+                            <code class="text-xs bg-gray-100 dark:bg-gray-900 px-1 rounded">.flow</code> files) —
+                            supported directly by this tool.
+                        </p>
+                    </div>
+
+                    <div>
+                        <p class="font-medium mb-1">📦 Option 2 — Download a ZIP from a Git repo</p>
+                        <p class="text-gray-500 dark:text-gray-400">
+                            If your metadata lives in an SFDX project on GitHub/GitLab, open the repo →
+                            <strong>Code → Download ZIP</strong>. That gives an SFDX source-format package
+                            (e.g. <code class="text-xs bg-gray-100 dark:bg-gray-900 px-1 rounded">force-app/main/default/...</code>
+                            with <code class="text-xs bg-gray-100 dark:bg-gray-900 px-1 rounded">-meta.xml</code>
+                            suffixed files) — also supported directly, no conversion needed.
+                        </p>
+                    </div>
+
+                    <p class="text-xs text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-700 pt-3">
+                        Both classic Metadata API retrieve format and SFDX source format are supported — just drop
+                        whichever ZIP you have.
+                    </p>
+                </div>
+            </div>
         </div>
 
         <!-- Drop zone -->
