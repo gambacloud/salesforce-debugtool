@@ -163,7 +163,13 @@ async function handleMessage(data) {
                 } else if (lower.endsWith('.html')) {
                     lwcMap[lwcComp].html = await file.async('string');
                     lwcMap[lwcComp].htmlPath = entryPath;
+                } else {
+                    // .css, .js-meta.xml, .svg, test files, etc. — not captured, but still
+                    // counted so "skipped" honestly reflects everything not in this document.
+                    counts.skipped++;
                 }
+            } else {
+                counts.skipped++;
             }
             progress('LWC');
             continue;
@@ -182,7 +188,13 @@ async function handleMessage(data) {
                 } else if (lower.endsWith('controller.js')) {
                     auraMap[auraComp].controllerJs = await file.async('string');
                     auraMap[auraComp].controllerJsPath = entryPath;
+                } else {
+                    // .css, .design, .svg, .auradoc, helper.js, renderer.js, etc. — not captured,
+                    // but still counted so "skipped" honestly reflects everything not in this document.
+                    counts.skipped++;
                 }
+            } else {
+                counts.skipped++;
             }
             progress('Aura');
             continue;
@@ -328,6 +340,8 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
     out.push('This document is a structured dump of a Salesforce org\'s metadata — Apex classes/triggers, Flows (with control-flow diagrams), Custom Objects/Fields/Formulas, Custom Metadata Types & Records, LWC/Aura components, and Profile permissions.');
     out.push('Start with the Source Manifest and Dependency Graph sections to find what\'s relevant, then use the numbered `<file path="...">` blocks under each component to cite exact source lines.');
     out.push('');
+    out.push('⚠ This is not a complete mirror of the org: only the types above are parsed. Permission Sets, Page Layouts, Static Resources, Workflow Rules, Approval Processes, Reports/Dashboards, and other metadata types are **not** included — see "Not Parsed" in the summary below for how much of this ZIP that is.');
+    out.push('');
     out.push('- Generated: ' + stats.generatedAt);
     out.push('- Source ZIP: ' + stats.fileName);
     out.push('');
@@ -345,6 +359,7 @@ function buildMarkdown(stats, nodes, lwcNodes, auraNodes, edges) {
         ['Profiles', c.profiles],
         ['Custom Metadata Records', c.customMetadata],
         ['Dependency Edges', edges.length],
+        ['Not Parsed (other metadata types)', c.skipped],
     ]));
 
     // ── Source Manifest & References ──

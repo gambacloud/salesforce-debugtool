@@ -121,6 +121,7 @@
             { label: 'Profiles', value: c.profiles },
             { label: 'Custom Metadata Records', value: c.customMetadata },
             { label: 'Dependency Edges', value: c.edges },
+            { label: 'Not Parsed', value: c.skipped },
         ];
         summaryGrid.innerHTML = tiles.map(function (t) {
             return '<div class="text-center bg-gray-50 dark:bg-gray-900/50 rounded-lg py-3">' +
