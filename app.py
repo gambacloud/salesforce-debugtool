@@ -52,6 +52,10 @@ def deploy_tool():
 def metadata_kb():
     return FileResponse(os.path.join(DEPLOY_STATIC_DIR, "metadata-kb.html"))
 
+@app.get("/audit-trail-search")
+def audit_trail_search():
+    return FileResponse(os.path.join(DEPLOY_STATIC_DIR, "audit-trail-search.html"))
+
 @app.get("/api/config")
 def get_config():
     return {"clientId": os.environ.get("SF_CLIENT_ID", "")}
