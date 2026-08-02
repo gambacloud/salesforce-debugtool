@@ -283,6 +283,27 @@ async def tooling_query(instanceUrl: str, sessionId: str, q: str):
     return res.json()
 
 
+class CompositeRequest(BaseModel):
+    instanceUrl: str
+    sessionId: str
+    compositeRequest: List[dict]
+
+@app.post("/api/proxy/composite")
+async def composite_proxy(req: CompositeRequest):
+    """Batches multiple REST/Tooling subrequests (each a relative /services/data/... url) into one round trip."""
+    instance_url = req.instanceUrl.rstrip('/')
+    instance_url = instance_url if instance_url.startswith("http") else f"https://{instance_url}"
+    headers = {"Authorization": f"Bearer {req.sessionId}", "Content-Type": "application/json"}
+    res = await _http_client.post(
+        f"{instance_url}/services/data/v58.0/composite",
+        json={"compositeRequest": req.compositeRequest, "allOrNone": False},
+        headers=headers
+    )
+    if res.status_code != 200:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    return res.json()
+
+
 # --- Angular SPA catch-all (must be last) ---
 
 @app.get("/{full_path:path}")

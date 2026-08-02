@@ -148,6 +148,10 @@ let srcZip = null;
 let tgtZip = null;
 let changedFiles = [];
 let testClassNames = [];
+// Paths fetched via the fast diff-only path (Tooling API JSON, or binary REST content).
+// These are fast enough for comparison but NOT safe to deploy as-is - deploy re-retrieves
+// them for real through the classic Metadata API. Map: path -> { metaType, fullName }.
+let diffOnlyMetaByPath = new Map();
 
 // --- IndexedDB History Storage ---
 const HISTORY_DB_NAME = 'sfdc-deploy-history';
@@ -260,6 +264,7 @@ const FOLDER_TO_TYPE_MAP = {
     'classes': 'ApexClass', 'pages': 'ApexPage', 'components': 'ApexComponent',
     'triggers': 'ApexTrigger', 'aura': 'AuraDefinitionBundle', 'lwc': 'LightningComponentBundle',
     'objects': 'CustomObject', 'layouts': 'Layout', 'permissionsets': 'PermissionSet',
+    'staticresources': 'StaticResource',
     'profiles': 'Profile', 'customMetadata': 'CustomMetadata', 'labels': 'CustomLabels',
     'flows': 'Flow', 'workflows': 'Workflow', 'email': 'EmailTemplate',
     'roles': 'Role', 'groups': 'Group', 'queues': 'Queue', 'connectedApps': 'ConnectedApp',
@@ -604,14 +609,21 @@ async function fetchMetadata(instanceUrl, sessionId, xmlPayload, useFastCompare 
         }
     }
 
-    // 2. Identify Fast Types vs Slow Types
+    // 2. Identify Fast Types vs Diff-Only Types vs Slow Types
+    // Fast: content fetched via REST is byte-identical to what Metadata API would deploy - safe both ways.
     const supportedFastTypes = ['ApexClass', 'ApexTrigger', 'ApexComponent', 'ApexPage'];
+    // Diff-only: fetched via REST/Tooling for a fast comparison, but the fetched shape (JSON metadata,
+    // or unverified binary round-tripping) isn't safe to deploy as-is. Deploy re-retrieves these for
+    // real through the classic Metadata API right before building the deploy zip. See executeDeploy().
+    const supportedDiffOnlyTypes = ['StaticResource', 'CustomField', 'ValidationRule', 'CustomObject'];
     const fastTypes = [];
+    const diffOnlyTypes = [];
     const slowTypes = [];
 
     if (useFastCompare) {
         typesToRetrieve.forEach(t => {
             if (supportedFastTypes.includes(t.name)) fastTypes.push(t);
+            else if (supportedDiffOnlyTypes.includes(t.name)) diffOnlyTypes.push(t);
             else slowTypes.push(t);
         });
     } else {
@@ -662,10 +674,137 @@ async function fetchMetadata(instanceUrl, sessionId, xmlPayload, useFastCompare 
         promises.push(restPromise);
     }
 
-    // 4. Wait for Both Streams
+    // 3c. Diff-only Fast Fetch (Tooling API / REST) for comparison speed only
+    if (diffOnlyTypes.length > 0) {
+        const diffOnlyPromise = fetchDiffOnlyMetadata(instanceUrl, sessionId, diffOnlyTypes).then(diffZip => {
+            diffZip.forEach((relativePath, file) => {
+                finalZip.file(relativePath, file.async('arraybuffer'));
+            });
+        });
+        promises.push(diffOnlyPromise);
+    }
+
+    // 4. Wait for All Streams
     await Promise.all(promises);
 
     return finalZip;
+}
+
+// Batches GET subrequests through the Composite API to cut round trips (max 20 per call, under SF's 25 cap).
+async function fetchViaComposite(instanceUrl, sessionId, subRequests) {
+    const results = {};
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < subRequests.length; i += BATCH_SIZE) {
+        const batch = subRequests.slice(i, i + BATCH_SIZE);
+        const compositeRequest = batch.map(r => ({ method: "GET", url: r.url, referenceId: r.referenceId }));
+        const res = await fetch('/api/proxy/composite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ instanceUrl, sessionId, compositeRequest })
+        });
+        if (!res.ok) throw new Error(`Composite API Error: ${await res.text()}`);
+        const data = await res.json();
+        for (const item of data.compositeResponse) {
+            if (item.httpStatusCode >= 200 && item.httpStatusCode < 300) {
+                results[item.referenceId] = item.body;
+            } else {
+                console.error(`Composite subrequest ${item.referenceId} failed:`, item.body);
+                results[item.referenceId] = { records: [] };
+            }
+        }
+    }
+    return results;
+}
+
+// Fetches StaticResource/CustomField/ValidationRule/CustomObject fast for DIFF DETECTION only.
+// StaticResource comes back as REST body (possibly binary - unsafe to round-trip through the
+// zip's UTF-8 string layer for deploy). CustomField/ValidationRule/CustomObject come back as
+// Tooling API JSON metadata (not the XML the Metadata API deploy expects). Both are recorded in
+// diffOnlyMetaByPath so executeDeploy() knows to re-retrieve the real deployable content later.
+async function fetchDiffOnlyMetadata(instanceUrl, sessionId, typeConfigs) {
+    const zip = new JSZip();
+    const v = 'v58.0';
+    const subRequests = [];
+
+    for (const config of typeConfigs) {
+        const type = config.name;
+        const members = config.members;
+        const isWildcard = members.length === 0 || members.includes('*');
+        const memberFilter = isWildcard ? null : new Set(members);
+
+        if (type === 'StaticResource') {
+            const where = isWildcard ? '' : ` WHERE Name IN (${members.map(m => `'${m}'`).join(',')})`;
+            const q = `SELECT Name, Body, NamespacePrefix FROM StaticResource${where}`;
+            subRequests.push({ referenceId: 'StaticResource', url: `/services/data/${v}/query?q=${encodeURIComponent(q)}` });
+        } else if (type === 'CustomField') {
+            const q = `SELECT DeveloperName, TableEnumOrId, NamespacePrefix, Metadata FROM CustomField`;
+            subRequests.push({ referenceId: 'CustomField', url: `/services/data/${v}/tooling/query?q=${encodeURIComponent(q)}` });
+        } else if (type === 'ValidationRule') {
+            const q = `SELECT ValidationName, NamespacePrefix, EntityDefinition.QualifiedApiName, Metadata FROM ValidationRule`;
+            subRequests.push({ referenceId: 'ValidationRule', url: `/services/data/${v}/tooling/query?q=${encodeURIComponent(q)}` });
+        } else if (type === 'CustomObject') {
+            const q = `SELECT DeveloperName, NamespacePrefix, Metadata FROM CustomObject`;
+            subRequests.push({ referenceId: 'CustomObject', url: `/services/data/${v}/tooling/query?q=${encodeURIComponent(q)}` });
+        }
+    }
+
+    if (subRequests.length === 0) return zip;
+
+    const byRef = await fetchViaComposite(instanceUrl, sessionId, subRequests);
+
+    const addEntry = (compPath, metaType, fullName, content) => {
+        zip.file(compPath, content);
+        diffOnlyMetaByPath.set(compPath, { metaType, fullName });
+    };
+
+    if (byRef.StaticResource) {
+        const wanted = typeConfigs.find(t => t.name === 'StaticResource');
+        const memberFilter = (wanted && wanted.members.length && !wanted.members.includes('*')) ? new Set(wanted.members) : null;
+        for (const r of byRef.StaticResource.records || []) {
+            const prefix = r.NamespacePrefix ? `${r.NamespacePrefix}__` : '';
+            const fullName = `${prefix}${r.Name}`;
+            if (memberFilter && !memberFilter.has(r.Name) && !memberFilter.has(fullName)) continue;
+            addEntry(`unpackaged/staticresources/${fullName}.resource`, 'StaticResource', fullName, r.Body || '');
+        }
+    }
+
+    if (byRef.CustomField) {
+        const wanted = typeConfigs.find(t => t.name === 'CustomField');
+        const memberFilter = (wanted && wanted.members.length && !wanted.members.includes('*')) ? new Set(wanted.members) : null;
+        for (const r of byRef.CustomField.records || []) {
+            const objName = r.TableEnumOrId;
+            const prefix = r.NamespacePrefix ? `${r.NamespacePrefix}__` : '';
+            const fullName = `${objName}.${prefix}${r.DeveloperName}__c`;
+            if (memberFilter && !memberFilter.has(fullName)) continue;
+            addEntry(`unpackaged/objects/${objName}/fields/${prefix}${r.DeveloperName}__c.json`, 'CustomField', fullName, JSON.stringify(r.Metadata, null, 2));
+        }
+    }
+
+    if (byRef.ValidationRule) {
+        const wanted = typeConfigs.find(t => t.name === 'ValidationRule');
+        const memberFilter = (wanted && wanted.members.length && !wanted.members.includes('*')) ? new Set(wanted.members) : null;
+        for (const r of byRef.ValidationRule.records || []) {
+            const objName = r.EntityDefinition ? r.EntityDefinition.QualifiedApiName : 'Unknown';
+            const prefix = r.NamespacePrefix ? `${r.NamespacePrefix}__` : '';
+            const fullName = `${objName}.${prefix}${r.ValidationName}`;
+            if (memberFilter && !memberFilter.has(fullName)) continue;
+            addEntry(`unpackaged/objects/${objName}/validationRules/${prefix}${r.ValidationName}.json`, 'ValidationRule', fullName, JSON.stringify(r.Metadata, null, 2));
+        }
+    }
+
+    if (byRef.CustomObject) {
+        const wanted = typeConfigs.find(t => t.name === 'CustomObject');
+        const memberFilter = (wanted && wanted.members.length && !wanted.members.includes('*')) ? new Set(wanted.members) : null;
+        for (const r of byRef.CustomObject.records || []) {
+            const prefix = r.NamespacePrefix ? `${r.NamespacePrefix}__` : '';
+            const fullName = `${prefix}${r.DeveloperName}__c`;
+            if (memberFilter && !memberFilter.has(fullName)) continue;
+            addEntry(`unpackaged/objects/${fullName}/${fullName}.json`, 'CustomObject', fullName, JSON.stringify(r.Metadata, null, 2));
+        }
+    }
+
+    zip.file('unpackaged/package.xml', '<?xml version="1.0" encoding="UTF-8"?><Package><version>58.0</version></Package>');
+    return zip;
 }
 
 async function fetchCodeViaRestApi(instanceUrl, sessionId, typeConfigs) {
@@ -778,6 +917,7 @@ btnRetrieve.addEventListener('click', async () => {
     emptyState.classList.add('hidden');
     diffSection.classList.add('hidden');
     deployActionBar.style.display = 'none';
+    diffOnlyMetaByPath.clear();
     btnRetrieve.disabled = true;
     btnRetrieve.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Processing...`;
 
@@ -1728,15 +1868,30 @@ async function executeDeploy(isCheckOnly) {
         const deployZip = new JSZip();
         // ... (rest of zip logic remains same)
         const typesMap = {};
+        const diffOnlyMembersByType = {}; // type -> Set(fullName), needs a real retrieve before deploy
 
         for (const idx of selectedIndexes) {
             const file = changedFiles[idx];
+            const diffOnlyMeta = diffOnlyMetaByPath.get(file.name);
+
+            if (diffOnlyMeta) {
+                // Fetched fast (Tooling JSON / unverified binary) for comparison only - not
+                // deployable as-is. Queue it for a real Metadata API retrieve below instead
+                // of writing file.srcContent straight into the deploy zip.
+                if (!diffOnlyMembersByType[diffOnlyMeta.metaType]) diffOnlyMembersByType[diffOnlyMeta.metaType] = new Set();
+                diffOnlyMembersByType[diffOnlyMeta.metaType].add(diffOnlyMeta.fullName);
+
+                if (!typesMap[diffOnlyMeta.metaType]) typesMap[diffOnlyMeta.metaType] = new Set();
+                typesMap[diffOnlyMeta.metaType].add(diffOnlyMeta.fullName);
+                continue;
+            }
+
             deployZip.file(file.name, file.srcContent);
 
             // Automatically include the corresponding associated metadata or base file
             const isMeta = file.name.endsWith('-meta.xml');
             const correspondingFileName = isMeta ? file.name.replace('-meta.xml', '') : file.name + '-meta.xml';
-            
+
             // srcZip is defined globally during the fetch & compare stage
             if (srcZip && srcZip.file(correspondingFileName)) {
                 const correspondingContent = await srcZip.file(correspondingFileName).async("string");
@@ -1753,6 +1908,32 @@ async function executeDeploy(isCheckOnly) {
                 if (!typesMap[typeName]) typesMap[typeName] = new Set();
                 typesMap[typeName].add(filename);
             }
+        }
+
+        // Re-retrieve diff-only selections for real through the classic Metadata API so the
+        // deploy zip carries actual deployable XML instead of the fast JSON/binary preview.
+        if (Object.keys(diffOnlyMembersByType).length > 0) {
+            Alpine.store('deploy').addLog('info', 'Fetching real metadata for fast-compared components...');
+            let retrieveXml = `<Package xmlns="http://soap.sforce.com/2006/04/metadata">\n`;
+            for (const [type, members] of Object.entries(diffOnlyMembersByType)) {
+                retrieveXml += `  <types>\n`;
+                members.forEach(m => retrieveXml += `    <members>${m}</members>\n`);
+                retrieveXml += `    <name>${type}</name>\n  </types>\n`;
+            }
+            retrieveXml += `  <version>58.0</version>\n</Package>`;
+
+            const retRes = await fetch('/api/proxy/retrieve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ instanceUrl: srcInstance.value, sessionId: srcSession.value, unpackagedXml: retrieveXml })
+            });
+            if (!retRes.ok) throw new Error(`Failed to retrieve real metadata for deploy: ${await retRes.text()}`);
+            const realZip = new JSZip();
+            await realZip.loadAsync(await retRes.arrayBuffer());
+            realZip.forEach((relativePath, file) => {
+                if (file.dir || relativePath === 'unpackaged/package.xml') return;
+                deployZip.file(relativePath, file.async('arraybuffer'));
+            });
         }
 
         let newPackageXml = `<?xml version="1.0" encoding="UTF-8"?>\n<Package xmlns="http://soap.sforce.com/2006/04/metadata">\n`;

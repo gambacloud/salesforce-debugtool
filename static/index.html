@@ -538,9 +538,9 @@
                     Compare Orgs
                 </button>
                 <div class="mt-2 flex items-center justify-center">
-                    <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer" title="Uses the REST API for instant retrieval of Code components (Apex, Visualforce). Falls back to Metadata API for config.">
+                    <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer" title="Uses the REST/Tooling API for instant comparison of Code (Apex, Visualforce), StaticResource, CustomField, ValidationRule and CustomObject. Falls back to Metadata API for everything else. Selected components are always re-fetched for real before deploy, so this only speeds up the diff, not the deploy content.">
                         <input type="checkbox" id="fastCompareToggle" class="w-3.5 h-3.5 text-salesforce border-gray-300 rounded focus:ring-salesforce cursor-pointer" checked>
-                        ⚡ Fast Compare (Code)
+                        ⚡ Fast Compare
                     </label>
                 </div>
                 <button id="btnAnalyze"
