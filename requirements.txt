@@ -5,6 +5,6 @@ pydantic
 cachetools
 
 # Mounted at /flow-tool - see app.py. Pulls in its own LLM deps.
-git+https://github.com/gambacloud/sfdc-flow-forge.git
+git+https://github.com/gambacloud/sfdc-flow-tool.git
 google-genai
 anthropic
