@@ -6,7 +6,7 @@ import asyncio
 import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import StreamingResponse, FileResponse, Response
+from fastapi.responses import StreamingResponse, FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
@@ -33,6 +33,20 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 if os.path.isdir(DEPLOY_STATIC_DIR):
     app.mount("/static", StaticFiles(directory=DEPLOY_STATIC_DIR), name="deploy-static")
+
+# Natural-language flow builder - a separate FastAPI app (its own repo, own
+# static assets, own /api/*), mounted whole rather than merged route by route.
+from server import app as flow_tool_app  # noqa: E402
+
+app.mount("/flow-tool", flow_tool_app)
+
+
+@app.get("/flow-tool")
+def flow_tool_trailing_slash():
+    # Without the trailing slash, flow-tool's relative asset paths would
+    # resolve one level up. Explicit rather than relying on Starlette's mount
+    # redirect, which the Angular catch-all below pre-empts.
+    return RedirectResponse(url="/flow-tool/")
 
 def get_soap_headers():
     return {"Content-Type": "text/xml; charset=UTF-8", "SOAPAction": '""'}

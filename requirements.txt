@@ -3,3 +3,8 @@ uvicorn
 httpx
 pydantic
 cachetools
+
+# Mounted at /flow-tool - see app.py. Pulls in its own LLM deps.
+git+https://github.com/gambacloud/sfdc-flow-forge.git
+google-genai
+anthropic
