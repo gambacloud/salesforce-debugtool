@@ -348,6 +348,53 @@ function shareObjectInfo(apiName) {
 
 // --- Main analysis ---
 
+// Given a target user and a list of top-level group Ids, returns the subset of those
+// group Ids the user is a (possibly transitive, through nested groups) member of.
+async function resolveGroupMembership(userId, groupIds) {
+    const result = new Set();
+    if (groupIds.length === 0) return result;
+
+    let frontier = groupIds.map(id => ({ groupId: id, originId: id }));
+    const visited = new Set(groupIds);
+    let depth = 0;
+    while (frontier.length > 0 && depth < GROUP_EXPANSION_MAX_DEPTH) {
+        const ids = [...new Set(frontier.map(f => f.groupId))];
+        const originByGroup = new Map();
+        frontier.forEach(f => {
+            if (!originByGroup.has(f.groupId)) originByGroup.set(f.groupId, new Set());
+            originByGroup.get(f.groupId).add(f.originId);
+        });
+
+        const data = await soqlQuery(`SELECT GroupId, UserOrGroupId FROM GroupMember WHERE GroupId IN (${ids.map(id => `'${soqlEscape(id)}'`).join(',')})`);
+        const nextFrontier = [];
+        (data.records || []).forEach(m => {
+            const origins = originByGroup.get(m.GroupId) || new Set();
+            if (m.UserOrGroupId === userId) {
+                origins.forEach(o => result.add(o));
+            } else if (m.UserOrGroupId.startsWith('00G') && !visited.has(m.UserOrGroupId)) {
+                visited.add(m.UserOrGroupId);
+                origins.forEach(o => nextFrontier.push({ groupId: m.UserOrGroupId, originId: o }));
+            }
+        });
+        frontier = nextFrontier;
+        depth++;
+    }
+    return result;
+}
+
+function accessLevelToGrants(level) {
+    if (level === 'All' || level === 'Full Access') return { read: true, edit: true, delete: true };
+    if (level === 'Edit') return { read: true, edit: true, delete: false };
+    if (level === 'Read') return { read: true, edit: false, delete: false };
+    return { read: false, edit: false, delete: false };
+}
+
+function owdToGrants(internalSharingModel) {
+    if (internalSharingModel === 'ReadWrite') return { read: true, edit: true, delete: false };
+    if (internalSharingModel === 'Read') return { read: true, edit: false, delete: false };
+    return { read: false, edit: false, delete: false }; // Private / ControlledByParent / unknown
+}
+
 window.checkAccess = async function () {
     clearError();
     const recordId = document.getElementById('recordIdInput').value.trim();
@@ -392,8 +439,16 @@ window.checkAccess = async function () {
                 )}`
             });
         }
+        requests.push({
+            method: 'GET',
+            referenceId: 'owd',
+            url: `/services/data/v58.0/tooling/query?q=${encodeURIComponent(
+                `SELECT InternalSharingModel, ExternalSharingModel FROM EntityDefinition WHERE QualifiedApiName = '${soqlEscape(objectInfo.name)}'`
+            )}`
+        });
 
         const results = await compositeRequest(requests);
+        const owd = (results.owd && results.owd.httpStatusCode < 300) ? (results.owd.body.records || [])[0] : null;
 
         const uraOk = results.ura && results.ura.httpStatusCode < 300;
         const uraRow = uraOk ? (results.ura.body.records || [])[0] : null;
@@ -442,6 +497,15 @@ window.checkAccess = async function () {
             }
         }
 
+        // Determine which share rows actually apply to the selected user (direct match, or
+        // transitive membership in the granting group) — a share row existing on the record
+        // doesn't mean this particular user is covered by it.
+        const directGroupIds = [...new Set(shareRows.filter(r => r.UserOrGroupId.startsWith('00G')).map(r => r.UserOrGroupId))];
+        const memberOfGroups = await resolveGroupMembership(_selectedUser.Id, directGroupIds);
+        shareRows.forEach(r => {
+            r.appliesToUser = r.UserOrGroupId === _selectedUser.Id || memberOfGroups.has(r.UserOrGroupId);
+        });
+
         renderResults({
             objectLabel: objectInfo.label,
             recordId,
@@ -449,7 +513,8 @@ window.checkAccess = async function () {
             recordRow,
             shareRows,
             shareError,
-            nameMap
+            nameMap,
+            owd
         });
     } catch (e) {
         showError(e.message);
@@ -466,9 +531,11 @@ function accessBadge(has) {
         : `<span class="inline-flex items-center gap-1 text-gray-400"><svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>No</span>`;
 }
 
-function renderResults({ objectLabel, recordId, uraRow, recordRow, shareRows, shareError, nameMap }) {
+function renderResults({ objectLabel, recordId, uraRow, recordRow, shareRows, shareError, nameMap, owd }) {
     const panel = document.getElementById('resultsPanel');
     const isOwner = recordRow && recordRow.OwnerId === _selectedUser.Id;
+    const activeShareRows = shareRows.filter(r => r.appliesToUser);
+    const otherGroupShareRows = shareRows.filter(r => !r.appliesToUser && r.UserOrGroupId.startsWith('00G'));
 
     const maxAccess = uraRow ? uraRow.MaxAccessLevel : 'None';
     const hasAny = uraRow && (uraRow.HasReadAccess || uraRow.HasEditAccess || uraRow.HasDeleteAccess);
@@ -506,7 +573,7 @@ function renderResults({ objectLabel, recordId, uraRow, recordRow, shareRows, sh
 
     const whyRows = [];
     if (isOwner) whyRows.push({ label: 'Owner', who: _selectedUser.Name, level: 'Full Access' });
-    shareRows.forEach(r => {
+    activeShareRows.forEach(r => {
         whyRows.push({
             label: ROW_CAUSE_LABELS[r.RowCause] || r.RowCause,
             who: nameMap[r.UserOrGroupId] || r.UserOrGroupId,
@@ -515,7 +582,7 @@ function renderResults({ objectLabel, recordId, uraRow, recordRow, shareRows, sh
     });
 
     if (whyRows.length === 0 && !isOwner) {
-        html += `<p class="text-xs text-gray-400">No explicit share rows found for this user or their groups. Access, if any, comes from org-wide defaults or role hierarchy alone.</p>`;
+        html += `<p class="text-xs text-gray-400">No explicit share rows apply to this user or a group they belong to. Access, if any, comes from org-wide defaults or role hierarchy alone.</p>`;
     } else {
         html += `<div class="space-y-1.5">` + whyRows.map(w => `
             <div class="flex items-center justify-between text-xs bg-gray-50 dark:bg-gray-900/50 rounded-md px-3 py-2">
@@ -523,6 +590,19 @@ function renderResults({ objectLabel, recordId, uraRow, recordRow, shareRows, sh
                 <span class="text-gray-400">${escapeHtml(w.who)}</span>
                 <span class="font-mono text-gray-500 dark:text-gray-400">${escapeHtml(w.level)}</span>
             </div>`).join('') + `</div>`;
+    }
+
+    if (otherGroupShareRows.length > 0) {
+        html += `<details class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 select-none">
+                ${otherGroupShareRows.length} other share${otherGroupShareRows.length === 1 ? '' : 's'} on this record this user isn't part of</summary>
+            <div class="mt-2 space-y-1.5">${otherGroupShareRows.map(r => `
+                <div class="flex items-center justify-between text-xs bg-gray-50 dark:bg-gray-900/50 rounded-md px-3 py-2">
+                    <span class="font-medium text-gray-700 dark:text-gray-300">${escapeHtml(ROW_CAUSE_LABELS[r.RowCause] || r.RowCause)}</span>
+                    <span class="text-gray-400">${escapeHtml(nameMap[r.UserOrGroupId] || r.UserOrGroupId)}</span>
+                    <span class="font-mono text-gray-500 dark:text-gray-400">${escapeHtml(r.AccessLevel)}</span>
+                </div>`).join('')}</div>
+        </details>`;
     }
     html += `</div>`;
 
@@ -547,8 +627,66 @@ function renderResults({ objectLabel, recordId, uraRow, recordRow, shareRows, sh
         </div>`;
     }
 
+    // Simulate panel
+    const owdGrants = owdToGrants(owd ? owd.InternalSharingModel : null);
+    const simCauses = [];
+    if (isOwner) simCauses.push({ label: 'Owner', level: 'Full Access' });
+    whyRows.filter(w => w.label !== 'Owner').forEach(w => simCauses.push({ label: `${w.label} (${w.who})`, level: w.level }));
+    const candidateGroups = otherGroupShareRows.map(r => ({
+        label: nameMap[r.UserOrGroupId] || r.UserOrGroupId,
+        level: r.AccessLevel
+    }));
+
+    html += `<div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-1">
+            <h3 class="text-sm font-semibold">Simulate a change</h3>
+            <span class="text-[10px] text-gray-400">Preview only — nothing is changed in your org</span>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">Org-wide default for ${escapeHtml(objectLabel)}: <span class="font-mono">${escapeHtml(owd ? owd.InternalSharingModel : 'Unknown')}</span>. Uncheck a cause below to preview revoking it, or add a candidate group to preview granting access.</p>
+        <div id="simCauses" class="space-y-1.5 mb-3">
+            ${simCauses.length > 0 ? simCauses.map(c => `
+                <label class="flex items-center gap-2 text-xs bg-gray-50 dark:bg-gray-900/50 rounded-md px-3 py-2 cursor-pointer">
+                    <input type="checkbox" class="sim-cause-checkbox" data-level="${escapeHtml(c.level)}" checked>
+                    <span class="flex-1 text-gray-700 dark:text-gray-300">${escapeHtml(c.label)}</span>
+                    <span class="font-mono text-gray-400">${escapeHtml(c.level)}</span>
+                </label>`).join('') : `<p class="text-xs text-gray-400">No active causes to revoke — access (if any) comes from org-wide defaults.</p>`}
+        </div>
+        ${candidateGroups.length > 0 ? `
+        <select id="simAddGroup" class="w-full mb-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-2.5 py-1.5 text-xs outline-none">
+            <option value="">+ Add via a group already sharing this record...</option>
+            ${candidateGroups.map((g, i) => `<option value="${i}" data-level="${escapeHtml(g.level)}">${escapeHtml(g.label)} (${escapeHtml(g.level)})</option>`).join('')}
+        </select>` : ''}
+        <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+            <span class="text-xs text-gray-400">Simulated result</span>
+            <div id="simResult" class="flex gap-3 text-xs"></div>
+        </div>
+    </div>`;
+
     panel.innerHTML = html;
     panel.classList.remove('hidden');
+
+    const recompute = () => {
+        let read = owdGrants.read, edit = owdGrants.edit, del = owdGrants.delete;
+        panel.querySelectorAll('.sim-cause-checkbox').forEach(cb => {
+            if (cb.checked) {
+                const g = accessLevelToGrants(cb.dataset.level);
+                read = read || g.read; edit = edit || g.edit; del = del || g.delete;
+            }
+        });
+        const addSelect = document.getElementById('simAddGroup');
+        if (addSelect && addSelect.value !== '') {
+            const g = accessLevelToGrants(addSelect.selectedOptions[0].dataset.level);
+            read = read || g.read; edit = edit || g.edit; del = del || g.delete;
+        }
+        document.getElementById('simResult').innerHTML = ['Read', 'Edit', 'Delete'].map((label, i) => {
+            const val = [read, edit, del][i];
+            return `<span class="${val ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}">${label}: ${val ? 'Yes' : 'No'}</span>`;
+        }).join('');
+    };
+    panel.querySelectorAll('.sim-cause-checkbox').forEach(cb => cb.addEventListener('change', recompute));
+    const addSelect = document.getElementById('simAddGroup');
+    if (addSelect) addSelect.addEventListener('change', recompute);
+    recompute();
 }
 
 // --- "Who can see this record" (reverse direction) ---
