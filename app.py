@@ -70,6 +70,10 @@ def metadata_kb():
 def audit_trail_search():
     return FileResponse(os.path.join(DEPLOY_STATIC_DIR, "audit-trail-search.html"))
 
+@app.get("/access-tool")
+def access_tool():
+    return FileResponse(os.path.join(DEPLOY_STATIC_DIR, "access-tool.html"))
+
 @app.get("/api/config")
 def get_config():
     return {"clientId": os.environ.get("SF_CLIENT_ID", "")}
