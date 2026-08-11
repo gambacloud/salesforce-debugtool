@@ -8,6 +8,26 @@
     position: relative;
 }
 
+.app-tagline {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.app-tagline h2 {
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 26px;
+    font-weight: 600;
+    color: #fff;
+    margin: 0 0 6px;
+}
+
+.app-tagline p {
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0;
+}
+
 .login-wrapper {
     display: flex;
     align-items: center;
