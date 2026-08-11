@@ -4,16 +4,33 @@
         <p>Debug logs — manage, review, analyze.</p>
     </div>
     <div class="login-wrapper">
-        <div class="auth-con">
-            <div class="sf-logo">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 67" width="72" height="48">
-                    <path fill="#00A1E0" d="M41.6 13.8c3.1-3.2 7.4-5.2 12.2-5.2 5.9 0 11.1 3.1 14.1 7.8 2.4-1.1 5.1-1.7 8-1.7 10.8 0 19.5 8.8 19.5 19.6S86.7 54 75.9 54c-1.3 0-2.5-.1-3.7-.4-2.7 4.9-7.9 8.2-13.9 8.2-2.5 0-4.8-.6-6.9-1.7C48.9 64.5 44 67 38.4 67c-7.2 0-13.3-4.4-16-10.7-1 .2-2.1.3-3.2.3C8.6 56.6 2 50 2 41.8c0-5.4 2.9-10.2 7.2-12.8-.5-1.5-.7-3.1-.7-4.8C8.5 13.6 15.1 7 23.3 7c4.1 0 7.8 1.6 10.5 4.3"/>
-                </svg>
+        <div class="auth-column">
+            <div class="auth-con">
+                <div class="sf-logo">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 67" width="72" height="48">
+                        <path fill="#00A1E0" d="M41.6 13.8c3.1-3.2 7.4-5.2 12.2-5.2 5.9 0 11.1 3.1 14.1 7.8 2.4-1.1 5.1-1.7 8-1.7 10.8 0 19.5 8.8 19.5 19.6S86.7 54 75.9 54c-1.3 0-2.5-.1-3.7-.4-2.7 4.9-7.9 8.2-13.9 8.2-2.5 0-4.8-.6-6.9-1.7C48.9 64.5 44 67 38.4 67c-7.2 0-13.3-4.4-16-10.7-1 .2-2.1.3-3.2.3C8.6 56.6 2 50 2 41.8c0-5.4 2.9-10.2 7.2-12.8-.5-1.5-.7-3.1-.7-4.8C8.5 13.6 15.1 7 23.3 7c4.1 0 7.8 1.6 10.5 4.3"/>
+                    </svg>
+                </div>
+                <h1>Sign in with Salesforce</h1>
+                <button class="btn-production" (click)="PRDLogin()">Production</button>
+                <button class="btn-sandbox" (click)="SBLogin()">Sandbox</button>
+                <p class="auth-note">Authenticates via OAuth 2.0 &mdash; no credentials are stored on any server</p>
             </div>
-            <h1>Sign in with Salesforce</h1>
-            <button class="btn-production" (click)="PRDLogin()">Production</button>
-            <button class="btn-sandbox" (click)="SBLogin()">Sandbox</button>
-            <p class="auth-note">Authenticates via OAuth 2.0 &mdash; no credentials are stored on any server</p>
+
+            <details class="manual-entry">
+                <summary>Manual entry</summary>
+                <div class="manual-entry-body">
+                    <input #instanceUrlInput type="text" placeholder="Instance URL (https://yourOrg.my.salesforce.com)">
+                    <input #sessionIdInput type="password" placeholder="Session ID / Access Token">
+                    <button class="btn-manual" (click)="connectManual(instanceUrlInput.value, sessionIdInput.value)">Connect</button>
+                    <p class="manual-hint">
+                        <strong>Instance URL:</strong> copy it from your browser's address bar while logged into the org.<br>
+                        <strong>Session ID:</strong> Setup &rarr; Developer Console &rarr; Debug &rarr; Open Execute Anonymous Window &rarr; run
+                        <code>System.debug(UserInfo.getSessionId());</code> &rarr; Execute, then copy the value from the debug log.
+                    </p>
+                    <p class="manual-hint manual-hint-note">Kept only in this page's memory for this session &mdash; not saved anywhere, and gone on refresh.</p>
+                </div>
+            </details>
         </div>
         <div class="more-tools">
             <div class="more-tools-title">More tools</div>

@@ -22,4 +22,20 @@ export class AuthorizationComponent implements OnInit {
     window.location.replace('https://test.salesforce.com/services/oauth2/authorize?response_type=token&client_id=3MVG9cHH2bfKACZZQA1CTUaBxcVq7LqNuaBjebe2JAgp45yVcYsQOyfuqdtY.NMubnAKoEL_huQns.Oj3G7kO&redirect_uri='+window.location.origin+'&state=mystate');
   }
 
+  connectManual(instanceUrl: string, sessionId: string): void {
+    instanceUrl = (instanceUrl || '').trim();
+    sessionId = (sessionId || '').trim();
+    if (!instanceUrl || !sessionId) {
+      alert('Enter both Instance URL and Session ID.');
+      return;
+    }
+    // Same query params AppComponent already reads from an OAuth redirect — it never
+    // persists them (no localStorage/sessionStorage), so this only lives for the current
+    // page load, same as a normal login.
+    const url = new URL(window.location.origin);
+    url.searchParams.set('access_token', sessionId);
+    url.searchParams.set('instance_url', instanceUrl);
+    window.location.href = url.toString();
+  }
+
 }

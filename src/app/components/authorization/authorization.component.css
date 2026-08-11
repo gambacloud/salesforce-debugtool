@@ -34,6 +34,12 @@
     gap: 48px;
 }
 
+.auth-column {
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+}
+
 .auth-con {
     background: white;
     border-radius: 16px;
@@ -98,6 +104,81 @@ button:active {
     color: #999;
     font-family: 'Segoe UI', sans-serif;
     line-height: 1.5;
+}
+
+.manual-entry {
+    margin-top: 14px;
+    text-align: left;
+}
+
+.manual-entry summary {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    user-select: none;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.manual-entry summary:hover {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.manual-entry-body {
+    margin-top: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.manual-entry-body input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-family: 'Segoe UI', sans-serif;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    outline: none;
+}
+
+.manual-entry-body input:focus {
+    border-color: #ffffff;
+}
+
+.btn-manual {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #032d60;
+    border: none !important;
+}
+
+.btn-manual:hover {
+    background-color: #ffffff;
+}
+
+.manual-hint {
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.6);
+    font-family: 'Segoe UI', sans-serif;
+    line-height: 1.5;
+    margin: 4px 0 0;
+}
+
+.manual-hint code {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.manual-hint-note {
+    font-style: italic;
 }
 
 .more-tools {
