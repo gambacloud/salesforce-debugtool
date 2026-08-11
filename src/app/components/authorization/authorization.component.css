@@ -47,6 +47,7 @@
     padding: 40px 48px;
     text-align: center;
     width: 300px;
+    box-sizing: border-box;
 }
 
 .sf-logo {
@@ -167,6 +168,11 @@ button:active {
     font-family: 'Segoe UI', sans-serif;
     line-height: 1.5;
     margin: 4px 0 0;
+}
+
+.manual-hint a {
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: underline;
 }
 
 .manual-hint code {

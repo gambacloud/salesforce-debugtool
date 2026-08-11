@@ -25,8 +25,10 @@
                     <button class="btn-manual" (click)="connectManual(instanceUrlInput.value, sessionIdInput.value)">Connect</button>
                     <p class="manual-hint">
                         <strong>Instance URL:</strong> copy it from your browser's address bar while logged into the org.<br>
-                        <strong>Session ID:</strong> Setup &rarr; Developer Console &rarr; Debug &rarr; Open Execute Anonymous Window &rarr; run
-                        <code>System.debug(UserInfo.getSessionId());</code> &rarr; Execute, then copy the value from the debug log.
+                        <strong>Session ID:</strong> log into
+                        <a href="https://workbench.developerforce.com" target="_blank" rel="noopener noreferrer">Workbench</a>
+                        with the same org &rarr; Utilities &rarr; REST Explorer &rarr; run any request &rarr; copy the
+                        Bearer token shown in the request headers.
                     </p>
                     <p class="manual-hint manual-hint-note">Kept only in this page's memory for this session &mdash; not saved anywhere, and gone on refresh.</p>
                 </div>
