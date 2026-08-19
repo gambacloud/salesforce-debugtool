@@ -48,6 +48,14 @@ def flow_tool_trailing_slash():
     # redirect, which the Angular catch-all below pre-empts.
     return RedirectResponse(url="/flow-tool/")
 
+# Job search tool - deployed as its own separate Heroku app/dyno, so this is
+# a plain external redirect rather than an in-process mount like flow-tool.
+JOB_SEARCH_TOOL_URL = "https://job-search-tool-ide-569997069814.herokuapp.com/"
+
+@app.get("/job-search-tool")
+def job_search_tool_redirect():
+    return RedirectResponse(url=JOB_SEARCH_TOOL_URL)
+
 def get_soap_headers():
     return {"Content-Type": "text/xml; charset=UTF-8", "SOAPAction": '""'}
 
