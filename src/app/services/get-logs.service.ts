@@ -19,8 +19,8 @@ export class GetLogsService {
     /*const headers = new HttpHeaders()
     .set("Authorization", "Bearer 00D3I0000000QWj!AQkAQD8gFeJC.XsekG8WXMkpO9I.HU8nYvdprCvPkGe1csR_gUAHapGLhJ2TTegfHZY6zqaAkDRFaQaVgpF.kwJmBKWWN4tB")
     .set('Content-Type', 'text/plain; charset=utf-8');*/
-    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v36.0/tooling/query/?q=SELECT+id+from+ApexLog";
-    var url = 'https://zi--fullbox1.my.salesforce.com/services/data/v36.0/tooling/sobjects/ApexLog/'+logId+'/Body';
+    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v60.0/tooling/query/?q=SELECT+id+from+ApexLog";
+    var url = 'https://zi--fullbox1.my.salesforce.com/services/data/v60.0/tooling/sobjects/ApexLog/'+logId+'/Body';
     return this.http.get<string>(url,requestOptions);
   }
 
@@ -28,8 +28,8 @@ export class GetLogsService {
     const headers = new HttpHeaders()
     .set("Authorization", "Bearer "+token)
     .set('Content-Type', 'application/json');
-    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v36.0/tooling/query/?q=SELECT+id+from+ApexLog";
-    var url = 'https://zi--fullbox1.my.salesforce.com/services/data/v36.0/tooling/query/?q=select+id+,+LogLength+,+LogUser.Name+,+LogUser.Id+,+LastModifiedDate+,+Operation+,+StartTime+,+Request+,+Status+,+SystemModstamp+,+DurationMilliseconds+,+Application+,+Location+from+apexlog';
+    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v60.0/tooling/query/?q=SELECT+id+from+ApexLog";
+    var url = 'https://zi--fullbox1.my.salesforce.com/services/data/v60.0/tooling/query/?q=select+id+,+LogLength+,+LogUser.Name+,+LogUser.Id+,+LastModifiedDate+,+Operation+,+StartTime+,+Request+,+Status+,+SystemModstamp+,+DurationMilliseconds+,+Application+,+Location+from+apexlog';
     return this.http.get<any>(url,{headers});
    /* return  [
       {

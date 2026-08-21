@@ -17,8 +17,8 @@ export class SFAPIService {
     const headers = new HttpHeaders()
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
-    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v36.0/tooling/query/?q=SELECT+id+from+ApexLog";
-    var url = credentials.instance_url + '/services/data/v43.0/tooling/sobjects/TraceFlag/'+TF.Id;
+    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v60.0/tooling/query/?q=SELECT+id+from+ApexLog";
+    var url = credentials.instance_url + '/services/data/v60.0/tooling/sobjects/TraceFlag/'+TF.Id;
     delete TF.Id; 
     return this.http.patch<any>(url,TF,{headers});
   }
@@ -45,8 +45,8 @@ export class SFAPIService {
     const headers = new HttpHeaders()
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
-    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v36.0/tooling/query/?q=SELECT+id+from+ApexLog";
-    var url = credentials.instance_url+'/services/data/v36.0/tooling/query/?q=select+id+,+DeveloperName+from+DebugLevel';
+    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v60.0/tooling/query/?q=SELECT+id+from+ApexLog";
+    var url = credentials.instance_url+'/services/data/v60.0/tooling/query/?q=select+id+,+DeveloperName+from+DebugLevel';
     return this.http.get<any>(url,{headers});
   }
 
@@ -54,8 +54,8 @@ export class SFAPIService {
     const headers = new HttpHeaders()
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
-    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v36.0/tooling/query/?q=SELECT+id+from+ApexLog";
-    var url = credentials.instance_url+"/services/data/v36.0/tooling/sobjects/TraceFlag/";
+    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v60.0/tooling/query/?q=SELECT+id+from+ApexLog";
+    var url = credentials.instance_url+"/services/data/v60.0/tooling/sobjects/TraceFlag/";
     return this.http.post<any>(url,traceFlag,{headers});
   }
 
@@ -65,8 +65,8 @@ export class SFAPIService {
     const headers = new HttpHeaders()
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
-    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v36.0/tooling/query/?q=SELECT+id+from+ApexLog";
-    var url = credentials.instance_url+"/services/data/v40.0/tooling/query/?q=SELECT+id+,+name+from+user+where+name+like+'"+userName+"%25' ";
+    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v60.0/tooling/query/?q=SELECT+id+from+ApexLog";
+    var url = credentials.instance_url+"/services/data/v60.0/tooling/query/?q=SELECT+id+,+name+from+user+where+name+like+'"+userName+"%25' ";
     return this.http.get<any>(url,{headers});
   }
 
@@ -74,8 +74,8 @@ export class SFAPIService {
     const headers = new HttpHeaders()
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
-    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v36.0/tooling/query/?q=SELECT+id+from+ApexLog";
-    var url = credentials.instance_url+'/services/data/v43.0/tooling/sobjects/TraceFlag/'+id;
+    //var url = "https://zi--fullbox1.my.salesforce.com/services/data/v60.0/tooling/query/?q=SELECT+id+from+ApexLog";
+    var url = credentials.instance_url+'/services/data/v60.0/tooling/sobjects/TraceFlag/'+id;
     return this.http.delete<any>(url,{headers});
   }
 
@@ -85,8 +85,8 @@ export class SFAPIService {
       headers: new HttpHeaders().append("Authorization", "Bearer "+credentials.access_token),
       responseType: 'text'
     }
-    //'/services/data/v43.0/tooling/sobjects/TraceFlag/'+logIds.join();
-    var url = credentials.instance_url+'/services/data/v43.0/tooling/composite/sobjects?ids='+Ids.join();
+    //'/services/data/v60.0/tooling/sobjects/TraceFlag/'+logIds.join();
+    var url = credentials.instance_url+'/services/data/v60.0/tooling/composite/sobjects?ids='+Ids.join();
     return this.http.delete<string>(url,requestOptions);
   }*/
 
@@ -95,7 +95,7 @@ export class SFAPIService {
       headers: new HttpHeaders().append("Authorization", "Bearer "+credentials.access_token),
       responseType: 'text'
     }
-    var url = credentials.instance_url+'/services/data/v43.0/composite/sobjects?allOrNone=false&ids='+logIds.join();
+    var url = credentials.instance_url+'/services/data/v60.0/composite/sobjects?allOrNone=false&ids='+logIds.join();
     return this.http.delete<string>(url,requestOptions);
   }
 
@@ -110,7 +110,7 @@ export class SFAPIService {
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
     
-    var url = credentials.instance_url+'/services/data/v36.0/tooling/query/?q=SELECT+count(id)+from+apexlog';
+    var url = credentials.instance_url+'/services/data/v60.0/tooling/query/?q=SELECT+count(id)+from+apexlog';
     return this.http.get<any>(url,{headers});
   }
 
@@ -120,7 +120,7 @@ export class SFAPIService {
       headers: new HttpHeaders().append("Authorization", "Bearer "+credentials.access_token),
       responseType: 'text'
     }
-    var url = credentials.instance_url+'/services/data/v36.0/tooling/sobjects/ApexLog/'+logId+'/Body';
+    var url = credentials.instance_url+'/services/data/v60.0/tooling/sobjects/ApexLog/'+logId+'/Body';
     return this.http.get<string>(url,requestOptions);
   }
 
@@ -130,7 +130,7 @@ export class SFAPIService {
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
     
-    var url = credentials.instance_url+'/services/data/v36.0/tooling/query/?q=select+id+,+LogLength+,+LogUser.Name+,+LogUser.Id+,+LastModifiedDate+,+Operation+,+StartTime+,+Request+,+Status+,+SystemModstamp+,+DurationMilliseconds+,+Application+,+Location+from+apexlog+order+by+StartTime+desc ';
+    var url = credentials.instance_url+'/services/data/v60.0/tooling/query/?q=select+id+,+LogLength+,+LogUser.Name+,+LogUser.Id+,+LastModifiedDate+,+Operation+,+StartTime+,+Request+,+Status+,+SystemModstamp+,+DurationMilliseconds+,+Application+,+Location+from+apexlog+order+by+StartTime+desc ';
     return this.http.get<any>(url,{headers});
   }
 
@@ -139,7 +139,7 @@ export class SFAPIService {
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
     
-    var url = credentials.instance_url+'/services/data/v36.0/tooling/query/?q=SELECT+id+,+ExpirationDate+,+StartDate+,+TracedEntity.id+,+TracedEntity.Name+,+DebugLevel.DeveloperName+,+DebugLevel.Id+from+TraceFlag';
+    var url = credentials.instance_url+'/services/data/v60.0/tooling/query/?q=SELECT+id+,+ExpirationDate+,+StartDate+,+TracedEntity.id+,+TracedEntity.Name+,+DebugLevel.DeveloperName+,+DebugLevel.Id+from+TraceFlag';
     return this.http.get<any>(url,{headers});
   }
 
@@ -148,7 +148,7 @@ export class SFAPIService {
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
     
-    var url = credentials.instance_url+'/services/data/v43.0/chatter/users/me';
+    var url = credentials.instance_url+'/services/data/v60.0/chatter/users/me';
     return this.http.get<any>(url,{headers});
   }
 
@@ -157,7 +157,7 @@ export class SFAPIService {
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
     
-    var url = credentials.instance_url+"/services/data/v43.0/sobjects/user/"+user.id+"/";
+    var url = credentials.instance_url+"/services/data/v60.0/sobjects/user/"+user.id+"/";
     return this.http.patch<any>(url,{"Country":user.Country},{headers});
   }
 
@@ -166,7 +166,7 @@ export class SFAPIService {
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
     
-    var url = credentials.instance_url+"/services/data/v43.0/sobjects/user/"+id+"/";
+    var url = credentials.instance_url+"/services/data/v60.0/sobjects/user/"+id+"/";
     return this.http.get<any>(url,{headers});
   }
   getOrgDetatils(credentials):Observable<any>{
@@ -174,7 +174,7 @@ export class SFAPIService {
     .set("Authorization", "Bearer "+credentials.access_token)
     .set('Content-Type', 'application/json');
    
-    var url = credentials.instance_url+'/services/data/v42.0/query?q=SELECT+IsSandbox+,+Name+,+OrganizationType+FROM+Organization';
+    var url = credentials.instance_url+'/services/data/v60.0/query?q=SELECT+IsSandbox+,+Name+,+OrganizationType+FROM+Organization';
     return this.http.get<any>(url,{headers});
   }
   
