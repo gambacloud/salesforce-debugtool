@@ -2,6 +2,7 @@ import { Component ,OnInit, ViewChild, AfterViewInit } from '@angular/core';
 import { DebugTableComponent } from './components/debug-table/debug-table.component';
 import {MatTabsModule} from '@angular/material/tabs';
 import { Title } from '@angular/platform-browser';
+import { HttpErrorResponse } from '@angular/common/http';
 import { SFAPIService } from './services/sf-api.service';
 import { MatIconRegistry } from "@angular/material/icon";
 import { DomSanitizer } from "@angular/platform-browser";
@@ -26,6 +27,8 @@ export class AppComponent implements OnInit{
   Debugs:Debug[];
   token:string;
   hasCORSerror = false;
+  hasLoginError = false;
+  loginErrorMessage:string;
   credentials:Object;
   logTabs = [];
   selected = new FormControl(0);
@@ -79,8 +82,17 @@ export class AppComponent implements OnInit{
           });
         });
         //this.Debugs = logs.records;
-      } ,err => {
-        this.hasCORSerror = true;
+      } ,(err:HttpErrorResponse) => {
+        // Angular reports status 0 when the browser blocks the response before it
+        // reaches app code (CORS rejection, network failure, ERR_SSL, etc.) -
+        // that's the only reliable signal we have for "this is actually CORS".
+        // Any real HTTP response (401, 403, 500...) is a different problem.
+        if(err.status === 0){
+          this.hasCORSerror = true;
+        } else {
+          this.hasLoginError = true;
+          this.loginErrorMessage = `${err.status} ${err.statusText || err.message}`;
+        }
       });
       this.SFAPIService.getOrgDetatils(this.credentials).subscribe(org => {
         console.log(' org info',org);

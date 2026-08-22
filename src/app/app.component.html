@@ -72,7 +72,11 @@
     </div>
     <div class="CORSerror" *ngIf="hasCORSerror">
       Error while login attempts. <br>
-      Please go to your ORG and navigate to -> setup -> cors, and make sure the tool path is allowed.    
+      Please go to your ORG and navigate to -> setup -> cors, and make sure the tool path is allowed.
+    </div>
+    <div class="CORSerror" *ngIf="hasLoginError">
+      Error while login attempts: {{loginErrorMessage}} <br>
+      This is not a CORS issue - check your org's error for details.
     </div>
   </ng-template>
 
