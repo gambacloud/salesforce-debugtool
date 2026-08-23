@@ -56,7 +56,7 @@ export class AppComponent implements OnInit{
   
     
 
-    this.titleService.setTitle( 'Debbug Tool' );
+    this.titleService.setTitle( 'Salesforce Debug Tool' );
     this.credentials = {}; 
     var url = new URL(window.location.href.replace('#', '?'));
     this.credentials['access_token'] =  this.token = url.searchParams.get("access_token");
