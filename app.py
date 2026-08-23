@@ -1,11 +1,12 @@
 import os
+import re
 import base64
 import hashlib
 import httpx
 import asyncio
 import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse, FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
@@ -89,6 +90,66 @@ def get_config():
 @app.get("/.well-known/appspecific/com.chrome.devtools.json")
 def chrome_devtools():
     return Response(content="{}", media_type="application/json")
+
+# --- Contact form ---
+# Self-hosted: the widget (static/contact-widget.js) posts here, we relay to
+# Resend. No third-party form service ever sees the submission.
+
+class ContactRequest(BaseModel):
+    message: str
+    email: str = ""
+    honeypot: str = ""
+    page: str = ""
+
+_contact_rate_cache: TTLCache = TTLCache(maxsize=1000, ttl=600)
+
+@app.post("/api/contact")
+async def contact_us(req: ContactRequest, request: Request):
+    if req.honeypot:
+        return {"ok": True}
+
+    message = req.message.strip()
+    if not message or len(message) > 5000:
+        raise HTTPException(status_code=400, detail="Invalid message")
+
+    client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
+    hits = _contact_rate_cache.get(client_ip, 0)
+    if hits >= 3:
+        raise HTTPException(status_code=429, detail="Too many requests, please try again later")
+    _contact_rate_cache[client_ip] = hits + 1
+
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="Contact form is not configured")
+
+    to_email = os.environ.get("CONTACT_TO_EMAIL", "idaneshel@gmail.com")
+    from_email = os.environ.get("CONTACT_FROM_EMAIL", "DebugTool Contact <onboarding@resend.dev>")
+    reply_to = re.sub(r'[\r\n]+', '', req.email.strip())[:200]
+    page = re.sub(r'[\r\n]+', '', req.page.strip())[:200]
+
+    body = f"Page: {page}\n" if page else ""
+    if reply_to:
+        body += f"Reply-to: {reply_to}\n"
+    body += f"\n{message}"
+
+    payload = {
+        "from": from_email,
+        "to": [to_email],
+        "subject": "DebugTool contact form" + (f" - {page}" if page else ""),
+        "text": body,
+    }
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    resp = await _http_client.post(
+        "https://api.resend.com/emails",
+        json=payload,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+    )
+    if resp.status_code >= 300:
+        print(f"[CONTACT] Resend error {resp.status_code}: {resp.text}")
+        raise HTTPException(status_code=502, detail="Failed to send message")
+    return {"ok": True}
 
 # --- Metadata API Proxy ---
 
