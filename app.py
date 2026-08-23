@@ -83,6 +83,10 @@ def audit_trail_search():
 def access_tool():
     return FileResponse(os.path.join(DEPLOY_STATIC_DIR, "access-tool.html"))
 
+@app.get("/googlec938c1b0454060f2.html")
+def google_site_verification():
+    return FileResponse(os.path.join(DEPLOY_STATIC_DIR, "googlec938c1b0454060f2.html"), media_type="text/html")
+
 @app.get("/robots.txt")
 def robots_txt():
     return FileResponse(os.path.join(DEPLOY_STATIC_DIR, "robots.txt"), media_type="text/plain")
