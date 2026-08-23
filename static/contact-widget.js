@@ -13,7 +13,6 @@
 
   function mount() {
     if (document.getElementById('dt-contact-widget-host')) return;
-    if (localStorage.getItem('dt-contact-dismissed') === '1') return;
     document.body.appendChild(host);
     var root = host.attachShadow({ mode: 'open' });
 
@@ -80,7 +79,6 @@
     });
     closeBtn.addEventListener('click', function () { panel.classList.remove('open'); });
     dismissBtn.addEventListener('click', function () {
-      localStorage.setItem('dt-contact-dismissed', '1');
       wrap.style.display = 'none';
       panel.classList.remove('open');
     });
