@@ -83,6 +83,14 @@ def audit_trail_search():
 def access_tool():
     return FileResponse(os.path.join(DEPLOY_STATIC_DIR, "access-tool.html"))
 
+@app.get("/robots.txt")
+def robots_txt():
+    return FileResponse(os.path.join(DEPLOY_STATIC_DIR, "robots.txt"), media_type="text/plain")
+
+@app.get("/sitemap.xml")
+def sitemap_xml():
+    return FileResponse(os.path.join(DEPLOY_STATIC_DIR, "sitemap.xml"), media_type="application/xml")
+
 @app.get("/api/config")
 def get_config():
     return {"clientId": os.environ.get("SF_CLIENT_ID", "")}

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://salesforce-debugtool.herokuapp.com/</loc>
+  </url>
+  <url>
+    <loc>https://salesforce-debugtool.herokuapp.com/deploytool</loc>
+  </url>
+  <url>
+    <loc>https://salesforce-debugtool.herokuapp.com/metadata-kb</loc>
+  </url>
+  <url>
+    <loc>https://salesforce-debugtool.herokuapp.com/audit-trail-search</loc>
+  </url>
+  <url>
+    <loc>https://salesforce-debugtool.herokuapp.com/access-tool</loc>
+  </url>
+  <url>
+    <loc>https://salesforce-debugtool.herokuapp.com/flow-tool/</loc>
+  </url>
+</urlset>
