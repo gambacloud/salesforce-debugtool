@@ -101,6 +101,7 @@ header{padding:.75rem 2rem;display:flex;align-items:center;border-bottom:1px sol
 .composer input:focus{outline:none;border-color:var(--blue)}
 .composer button{background:var(--blue);border:none;color:#fff;border-radius:10px;padding:0 1.25rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;font-weight:600;font-size:.82rem}
 .composer button:disabled{opacity:.4;cursor:not-allowed}
+.auto-fix-btn{background:linear-gradient(135deg,#8b5cf6,#6d28d9)!important;white-space:nowrap}
 .scope-note{padding:0 1.5rem .75rem;font-size:.7rem;color:var(--dim)}
 </style>
 </head>
@@ -637,6 +638,66 @@ function updateComposerLimit() {
   }
 }
 
+// ======================== AUTO-FIX (hands off to flow-tool) ========================
+// flow-tool is mounted at /flow-tool in this same app (see app.py), so these
+// are same-origin calls straight to its API - no new backend of our own.
+// Only wired up for Flow: flow-tool can import+refine an existing Flow
+// (FlowGenerator.adopt()), but has no equivalent "adopt" for an existing
+// Apex class, only "generate one from a description" - offering Auto-Fix
+// there would mean silently rewriting the whole class from scratch.
+async function flowToolApi(path, body) {
+  const res = await fetch(`/flow-tool/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
+
+async function flowToolPoll(path, params) {
+  const qs = new URLSearchParams(params).toString();
+  for (;;) {
+    const res = await fetch(`/flow-tool/${path}?${qs}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    if (data.done) return data;
+    await new Promise(r => setTimeout(r, 1200));
+  }
+}
+
+async function autoFixFlow() {
+  const btn = $('autoFixBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="icon">hourglass_top</span>Importing into flow-tool&hellip;'; }
+  try {
+    const lastAssistant = [...chatHistory].reverse().find(m => m.role === 'assistant');
+    const instruction = lastAssistant
+      ? `Fix the bug described here, reported by AI Error Assistance against a real failing execution:\n\n${lastAssistant.content}`
+      : `Fix this error: ${analysis.errorMessage}`;
+
+    const importJob = await flowToolApi('api/import/start', {
+      api_name: analysis.unitName,
+      instance_url: state.org.instanceUrl,
+      access_token: state.org.accessToken,
+    });
+    const imported = await flowToolPoll('api/import/status', { job_id: importJob.job_id });
+
+    if (btn) btn.innerHTML = '<span class="icon">hourglass_top</span>Drafting the fix&hellip;';
+    await flowToolApi('api/refine/start', {
+      session_id: imported.session_id,
+      instruction,
+    });
+    await flowToolPoll('api/refine/status', { session_id: imported.session_id });
+
+    window.open(`/flow-tool/?session=${imported.session_id}`, '_blank');
+  } catch (e) {
+    addMessage('err', 'Auto-Fix failed: ' + String(e.message || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<span class="icon">auto_fix_high</span>Auto-Fix'; }
+  }
+}
+
 // ======================== RENDER ========================
 function renderWorkspace() {
   main.innerHTML = `
@@ -661,6 +722,9 @@ function renderWorkspace() {
           <div class="composer">
             <input id="composerInput" placeholder="Ask a follow-up about this error..." onkeydown="if(event.key==='Enter')submitQuestion()">
             <button id="composerBtn" onclick="submitQuestion()"><span class="icon">send</span>Ask</button>
+            ${analysis.unitType === 'Flow' && state.org ? `
+            <button id="autoFixBtn" class="auto-fix-btn" onclick="autoFixFlow()" title="Import this flow into flow-tool and draft a fix from the conversation so far"><span class="icon">auto_fix_high</span>Auto-Fix</button>
+            ` : ''}
           </div>
         </div>
       </div>
