@@ -250,7 +250,10 @@ function start(logText, fileName, instanceUrl, accessToken) {
 // ======================== LOG PARSER ========================
 // Same event model as the standalone Log Analyzer (src/assets/log-analyzer):
 // a stack of CODE_UNIT_STARTED/FINISHED gives us which unit was executing
-// when the FATAL_ERROR / EXCEPTION_THROWN line appears.
+// when the FATAL_ERROR / EXCEPTION_THROWN / FLOW_ELEMENT_ERROR line appears.
+// A failed Flow doesn't always emit FATAL_ERROR - a per-element failure (a
+// Get Records with no rows, a formula that throws) is often reported only as
+// FLOW_ELEMENT_ERROR, so relying on FATAL_ERROR alone would miss it.
 function analyzeLog(text) {
   const lines = text.split('\n');
   const stack = [];
@@ -267,7 +270,7 @@ function analyzeLog(text) {
       stack.push(rawName.trim().substring(0, 150));
     } else if (ev === 'CODE_UNIT_FINISHED') {
       if (stack.length) stack.pop();
-    } else if ((ev === 'FATAL_ERROR' || ev === 'EXCEPTION_THROWN') && errorLine === -1) {
+    } else if ((ev === 'FATAL_ERROR' || ev === 'EXCEPTION_THROWN' || ev === 'FLOW_ELEMENT_ERROR') && errorLine === -1) {
       errorLine = i;
       errorMessage = p.slice(2).join('|').trim();
       failingUnit = stack.length ? stack[stack.length - 1] : null;
@@ -561,7 +564,7 @@ function renderWorkspace() {
         <div>
           <h3>${esc(state.fileName)}</h3>
           <div class="meta">
-            <span>${analysis.found ? 'Failure found' : 'No FATAL_ERROR/EXCEPTION_THROWN found'}</span>
+            <span>${analysis.found ? 'Failure found' : 'No FATAL_ERROR/EXCEPTION_THROWN/FLOW_ELEMENT_ERROR found'}</span>
             ${analysis.unitName ? `<span>${esc(analysis.unitType)}: ${esc(analysis.unitName)}</span>` : ''}
           </div>
         </div>
@@ -590,7 +593,7 @@ function renderSide() {
   html += `<h4><span class="icon">error</span>Error</h4>`;
   html += analysis.errorMessage
     ? `<div class="err-msg">${esc(analysis.errorMessage)}</div>`
-    : `<div class="err-msg">No FATAL_ERROR or EXCEPTION_THROWN line found in this log.</div>`;
+    : `<div class="err-msg">No FATAL_ERROR, EXCEPTION_THROWN, or FLOW_ELEMENT_ERROR line found in this log.</div>`;
 
   html += `<h4><span class="icon">description</span>Log excerpt</h4><pre>${esc(analysis.excerpt || '(empty)')}</pre>`;
 
