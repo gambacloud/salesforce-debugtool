@@ -3,6 +3,7 @@
 <td title="Delete log" ><button color="primary" mat-icon-button (click)="delete()" ><mat-icon>delete</mat-icon></button></td>
 <td title="Log preview" ><button color="primary" mat-icon-button  (click)="viewLog()" ><mat-icon>preview</mat-icon></button></td>
 <td title="Analyze log" ><button color="primary" mat-icon-button  (click)="analyzeLog()" ><mat-icon>query_stats</mat-icon></button></td>
+<td title="AI Error Assistance" ><button *ngIf="Debug.Status !== 'Success'" color="warn" mat-icon-button  (click)="aiErrorAssist()" ><mat-icon>smart_toy</mat-icon></button></td>
 <td title="Open log in new tab/window" ><a color="primary" mat-icon-button  (click)="viewLogNewTab()" ><mat-icon>launch</mat-icon></a>
 <window *ngIf="openNewLogTab && OpenLogAsNewWindow">
     <app-debug-window  [cdkPortalOutlet]="portal" [Debug]='Debug'>

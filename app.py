@@ -41,6 +41,10 @@ from server import app as flow_tool_app  # noqa: E402
 
 app.mount("/flow-tool", flow_tool_app)
 
+# Reuses flow-tool's own LLM provider (bring-your-own-key, same ANTHROPIC_API_KEY
+# config var) instead of a second Anthropic integration living in this file.
+from flowtool.llm import AnthropicProvider, Message, LLMError  # noqa: E402
+
 
 @app.get("/flow-tool")
 def flow_tool_trailing_slash():
@@ -82,6 +86,14 @@ def audit_trail_search():
 @app.get("/access-tool")
 def access_tool():
     return FileResponse(os.path.join(DEPLOY_STATIC_DIR, "access-tool.html"))
+
+@app.get("/assets/ai-error-assistant")
+def ai_error_assistant_page():
+    # Served at this exact path (no trailing slash, no /index.html) because
+    # that's what's registered as the Connected App's Callback URL for this
+    # page's own OAuth login - the Angular SPA catch-all below would otherwise
+    # answer a directory-style request with index.html instead of this file.
+    return FileResponse(os.path.join(ANGULAR_DIR, "assets", "ai-error-assistant", "index.html"))
 
 @app.get("/googlec938c1b0454060f2.html")
 def google_site_verification():
@@ -380,6 +392,96 @@ async def tooling_query(instanceUrl: str, sessionId: str, q: str):
     if res.status_code != 200:
         raise HTTPException(status_code=res.status_code, detail=res.text)
     return res.json()
+
+
+@app.get("/api/proxy/tooling/sobject/{sobject_type}/{record_id}")
+async def tooling_sobject_get(sobject_type: str, record_id: str, instanceUrl: str, sessionId: str):
+    """
+    A single Tooling API GET-by-Id, e.g. for Flow, whose full definition isn't
+    a queryable text field the way ApexClass.Body is - the Tooling API returns
+    it as a Metadata JSON object on the record itself instead. Cheaper than a
+    Metadata API SOAP retrieve (no polling, no zip) for the same information.
+    """
+    instance_url = instanceUrl.rstrip('/')
+    instance_url = instance_url if instance_url.startswith("http") else f"https://{instance_url}"
+    headers = {"Authorization": f"Bearer {sessionId}", "Accept": "application/json"}
+    res = await _http_client.get(
+        f"{instance_url}/services/data/v58.0/tooling/sobjects/{sobject_type}/{record_id}",
+        headers=headers,
+    )
+    if res.status_code != 200:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    return res.json()
+
+
+# --- AI Error Assistance ---
+# Explains why a non-Success debug log failed, scoped to that one log and the
+# Apex/Flow the browser identified as the failing automation. The browser does
+# all the log parsing and Salesforce fetching (it already holds the session);
+# this endpoint only ever sees text it was handed, never a Salesforce session.
+
+AI_ERROR_ASSIST_SYSTEM_PROMPT = """\
+You are a Salesforce debugging assistant embedded in a debug log viewer.
+
+You are shown one non-Success Salesforce debug log, the automation (Apex class, \
+Apex trigger, or Flow) that the log identifies as where the failure happened, \
+and that automation's source (when it could be fetched from the org). Your job \
+is to explain why this specific execution failed and what to change in that \
+automation to fix it.
+
+Stay strictly on that topic. If asked anything unrelated to this log, this \
+error, or this automation - general programming help, other Salesforce topics, \
+or anything else - decline and steer back to the log in front of you. You have \
+no other context and no access to anything beyond what is shown to you below.
+
+Be concrete: name the line, method, or element responsible when the source \
+makes that possible, and describe the actual code/config change, not generic \
+advice like "add error handling" without saying what error and where.
+"""
+
+
+class AiChatMessage(BaseModel):
+    role: str  # "user" | "assistant"
+    content: str
+
+
+class AiErrorAssistRequest(BaseModel):
+    logExcerpt: str
+    automationName: str = ""
+    automationType: str = ""  # "ApexClass" | "ApexTrigger" | "Flow" | ""
+    automationSource: str = ""
+    messages: List[AiChatMessage] = []
+
+
+@app.post("/api/ai-error-assist")
+async def ai_error_assist(req: AiErrorAssistRequest):
+    if not req.logExcerpt.strip():
+        raise HTTPException(status_code=400, detail="No log content to analyze")
+    if not req.messages:
+        raise HTTPException(status_code=400, detail="No question to answer")
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="AI Error Assistance is not configured")
+
+    context = f"Failing log excerpt:\n{req.logExcerpt[:12000]}\n"
+    if req.automationName:
+        context += f"\nFailing automation: {req.automationName} ({req.automationType or 'unknown type'})\n"
+    if req.automationSource:
+        context += f"\nAutomation source:\n{req.automationSource[:30000]}\n"
+
+    provider = AnthropicProvider(api_key=api_key)
+    messages = [Message(role="user", content=context)]
+    for m in req.messages:
+        messages.append(Message(role=m.role, content=m.content))
+
+    try:
+        reply = await asyncio.to_thread(
+            provider.complete_text, AI_ERROR_ASSIST_SYSTEM_PROMPT, messages
+        )
+    except LLMError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"reply": reply}
 
 
 class CompositeRequest(BaseModel):

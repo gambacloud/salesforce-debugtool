@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Error Assistance</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1115;
+  --panel: rgba(25,28,36,0.6);
+  --border: rgba(255,255,255,0.08);
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --dim: #64748b;
+  --blue: #3b82f6;
+  --blue-h: #2563eb;
+  --green: #10b981;
+  --red: #ef4444;
+  --orange: #f59e0b;
+  --purple: #8b5cf6;
+  --mono: 'JetBrains Mono','Cascadia Code',monospace;
+}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+html,body{margin:0;padding:0;height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;
+  background-image:radial-gradient(circle at 15% 50%,rgba(239,68,68,.05),transparent 25%),radial-gradient(circle at 85% 30%,rgba(139,92,246,.06),transparent 25%)}
+.icon{font-family:'Material Symbols Outlined';font-size:1.1rem;vertical-align:middle;font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-smoothing:antialiased}
+
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+header{padding:.75rem 2rem;display:flex;align-items:center;border-bottom:1px solid var(--border);background:rgba(15,17,21,.8);backdrop-filter:blur(12px);z-index:10}
+.logo{display:flex;align-items:center;gap:.5rem}
+.logo .icon{font-size:1.5rem;background:linear-gradient(135deg,#f87171,#a78bfa);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.logo h1{margin:0;font-size:1.15rem;font-weight:600;background:linear-gradient(90deg,#f87171,#a78bfa);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.02em}
+.main{flex:1;overflow:hidden;display:flex}
+.center{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem}
+
+.drop-zone{width:100%;max-width:650px;border:2px dashed var(--border);border-radius:20px;padding:3rem 2rem;text-align:center;cursor:pointer;transition:all .3s;background:var(--panel);backdrop-filter:blur(12px)}
+.drop-zone:hover{border-color:var(--red);background:rgba(239,68,68,.05)}
+.drop-zone.drag-over{border-color:var(--red);background:rgba(239,68,68,.1);transform:scale(1.02);box-shadow:0 0 40px rgba(239,68,68,.15)}
+.drop-zone .icon{font-size:3.5rem;color:rgba(255,255,255,.4);display:block;margin-bottom:1rem}
+.drop-zone h2{margin:0 0 .5rem;font-weight:600;font-size:1.25rem}
+.drop-zone p{margin:0;color:var(--muted);font-size:.875rem}
+.drop-zone .hint{margin-top:1.5rem;font-size:.75rem;color:var(--dim);letter-spacing:.1em}
+.org-form{width:100%;max-width:650px;margin-top:1rem;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:1rem 1.25rem}
+.org-form summary{cursor:pointer;font-size:.82rem;color:var(--muted);font-weight:500}
+.org-form .row{display:flex;gap:.5rem;margin-top:.75rem}
+.org-form input{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:.5rem .7rem;color:var(--text);font-family:var(--mono);font-size:.78rem}
+.org-form p{margin:.5rem 0 0;font-size:.72rem;color:var(--dim)}
+.login-row{display:flex;gap:.6rem;width:100%;max-width:650px;margin-top:1rem}
+.login-btn{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:.6rem;cursor:pointer;font-family:inherit;font-size:.82rem;font-weight:600;display:flex;align-items:center;justify-content:center;gap:.4rem}
+.login-btn:hover{background:rgba(255,255,255,.09)}
+.connected-pill{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .8rem;border-radius:20px;background:rgba(16,185,129,.15);color:#34d399;font-size:.78rem;font-weight:600;margin-top:.75rem}
+
+.loading{text-align:center}
+.loading h3{margin:1rem 0 .25rem;font-weight:600}
+.loading .sub{color:var(--dim);font-size:.85rem;margin:0 0 1.5rem}
+.spinner{width:3rem;height:3rem;border:3px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.workspace{display:flex;flex-direction:column;height:100%;overflow:hidden;width:100%}
+.toolbar{display:flex;align-items:center;gap:1rem;padding:.75rem 1.5rem;border-bottom:1px solid var(--border);background:rgba(25,28,36,.4);backdrop-filter:blur(12px)}
+.toolbar h3{margin:0;font-size:.95rem;font-weight:600}
+.toolbar .meta{display:flex;gap:.75rem;font-size:.75rem;color:var(--dim);flex-wrap:wrap}
+.spacer{flex:1}
+.back-btn{background:none;border:1px solid rgba(255,255,255,.1);color:var(--text);border-radius:8px;padding:.4rem;cursor:pointer;display:flex;transition:all .2s}
+.back-btn:hover{background:rgba(255,255,255,.08)}
+.automation-badge{display:flex;align-items:center;gap:.4rem;padding:.4rem 1rem;border-radius:20px;font-size:.8rem;font-weight:600;background:rgba(239,68,68,.15);color:#f87171}
+
+.body{flex:1;overflow:hidden;display:flex}
+.side{width:340px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;padding:1rem 1.25rem;background:rgba(15,17,21,.3)}
+.side h4{margin:0 0 .5rem;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);display:flex;align-items:center;gap:.35rem}
+.side h4 .icon{font-size:.95rem}
+.side pre{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:8px;padding:.65rem .75rem;font-family:var(--mono);font-size:.72rem;line-height:1.5;white-space:pre-wrap;word-break:break-word;color:#cbd5e1;max-height:220px;overflow-y:auto;margin:0 0 1.25rem}
+.err-msg{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:.65rem .75rem;font-size:.78rem;color:#fca5a5;margin:0 0 1.25rem;line-height:1.5}
+.src-status{font-size:.72rem;color:var(--dim);margin:0 0 1.25rem;display:flex;align-items:center;gap:.4rem}
+.src-status.ok{color:#34d399}
+.src-status.err{color:#fbbf24}
+
+.chat{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.chat-log{flex:1;overflow-y:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.msg{max-width:80%;padding:.85rem 1.1rem;border-radius:14px;font-size:.86rem;line-height:1.6;white-space:pre-wrap}
+.msg.assistant{align-self:flex-start;background:var(--panel);border:1px solid var(--border);border-bottom-left-radius:4px}
+.msg.user{align-self:flex-end;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border-bottom-right-radius:4px}
+.msg.thinking{align-self:flex-start;color:var(--dim);font-style:italic;display:flex;align-items:center;gap:.5rem}
+.msg.err{align-self:flex-start;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--dim);animation:pulse 1s infinite ease-in-out}
+.dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}
+@keyframes pulse{0%,80%,100%{opacity:.3}40%{opacity:1}}
+.composer{display:flex;gap:.6rem;padding:1rem 1.5rem;border-top:1px solid var(--border);background:rgba(15,17,21,.4)}
+.composer input{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem;color:var(--text);font-family:inherit;font-size:.86rem}
+.composer input:focus{outline:none;border-color:var(--blue)}
+.composer button{background:var(--blue);border:none;color:#fff;border-radius:10px;padding:0 1.25rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;font-weight:600;font-size:.82rem}
+.composer button:disabled{opacity:.4;cursor:not-allowed}
+.scope-note{padding:0 1.5rem .75rem;font-size:.7rem;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">
+      <span class="icon">smart_toy</span>
+      <h1>AI Error Assistance</h1>
+    </div>
+  </header>
+  <div class="main" id="main"></div>
+</div>
+
+<script>
+// ======================== STATE ========================
+let state = null; // {fileName, logText, org:{instanceUrl, accessToken}}
+let analysis = null; // {unitName, unitType, errorMessage, excerpt}
+let automationSource = { status: 'idle', text: '' }; // idle | loading | ok | err
+let chatHistory = []; // [{role, content}]
+let orgCreds = null; // {instanceUrl, accessToken} - from OAuth login, survives across the redirect
+let sfClientId = null;
+const $ = id => document.getElementById(id);
+const main = $('main');
+const API_VERSION = '58.0';
+// Hardcoded rather than derived from window.location.pathname: this page can
+// also be opened as assets/ai-error-assistant/index.html by the debug table's
+// popup flow (see the postMessage handler below), and the Connected App's
+// Callback URL is registered against this exact path - login() has to send
+// Salesforce the one redirect_uri that's actually on that allowlist no
+// matter which path this page itself was loaded from.
+const REDIRECT_URI = window.location.origin + '/assets/ai-error-assistant';
+const ORG_STORAGE_KEY = 'aiErrorAssist:org';
+
+// ======================== OAUTH LOGIN ========================
+function initOAuthFromHash() {
+  if (window.location.hash.includes('access_token')) {
+    const params = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = params.get('access_token');
+    const instanceUrl = params.get('instance_url');
+    if (accessToken && instanceUrl) {
+      sessionStorage.setItem(ORG_STORAGE_KEY, JSON.stringify({ instanceUrl, accessToken }));
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }
+  try {
+    const saved = sessionStorage.getItem(ORG_STORAGE_KEY);
+    if (saved) orgCreds = JSON.parse(saved);
+  } catch (e) { /* ignore malformed storage */ }
+}
+
+function disconnectOrg() {
+  sessionStorage.removeItem(ORG_STORAGE_KEY);
+  orgCreds = null;
+  showDropZone();
+}
+
+async function fetchClientId() {
+  if (sfClientId !== null) return sfClientId;
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    sfClientId = data.clientId || '';
+  } catch (e) {
+    sfClientId = '';
+  }
+  return sfClientId;
+}
+
+function loginTo(host) {
+  window.location.href =
+    `${host}/services/oauth2/authorize?response_type=token` +
+    `&client_id=${encodeURIComponent(sfClientId)}` +
+    `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+    `&state=ai-error-assist`;
+}
+
+// ======================== ENTRY: DROP ZONE ========================
+async function showDropZone() {
+  const connected = !!orgCreds;
+  main.innerHTML = `
+    <div class="center" style="flex-direction:column">
+      <div class="drop-zone" id="dz">
+        <input type="file" id="fi" accept=".log,.txt" hidden>
+        <span class="icon">report</span>
+        <h2>Drop a Salesforce debug log here</h2>
+        <p>or click to browse &mdash; works best with a log whose Status isn't Success</p>
+        <div class="hint">.log &bull; .txt</div>
+      </div>
+      ${connected ? `
+        <div class="connected-pill"><span class="icon">check_circle</span>Connected to ${esc(orgCreds.instanceUrl)}
+          <a href="#" onclick="disconnectOrg();return false;" style="color:inherit;margin-left:.4rem;text-decoration:underline">disconnect</a>
+        </div>
+      ` : `
+        <div class="login-row">
+          <button class="login-btn" id="loginProd"><span class="icon">login</span>Log in (Production)</button>
+          <button class="login-btn" id="loginSandbox"><span class="icon">login</span>Log in (Sandbox)</button>
+        </div>
+      `}
+      <details class="org-form">
+        <summary>Or paste org credentials manually</summary>
+        <div class="row">
+          <input id="orgUrl" placeholder="Instance URL, e.g. https://myorg.my.salesforce.com">
+          <input id="orgToken" placeholder="Session / access token" type="password">
+        </div>
+        <p>Only used from this browser tab to call Salesforce directly. Nothing is stored beyond this tab's session.</p>
+      </details>
+    </div>`;
+  const dz = $('dz'), fi = $('fi');
+  dz.onclick = () => fi.click();
+  fi.onchange = () => fi.files[0] && loadFile(fi.files[0]);
+  dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag-over'); };
+  dz.ondragleave = () => dz.classList.remove('drag-over');
+  dz.ondrop = e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    e.dataTransfer.files[0] && loadFile(e.dataTransfer.files[0]);
+  };
+  if (!connected) {
+    await fetchClientId();
+    $('loginProd').onclick = () => loginTo('https://login.salesforce.com');
+    $('loginSandbox').onclick = () => loginTo('https://test.salesforce.com');
+  }
+}
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const manualUrl = ($('orgUrl') && $('orgUrl').value.trim()) || null;
+    const manualToken = ($('orgToken') && $('orgToken').value.trim()) || null;
+    const orgUrl = orgCreds ? orgCreds.instanceUrl : manualUrl;
+    const orgToken = orgCreds ? orgCreds.accessToken : manualToken;
+    start(reader.result, file.name, orgUrl, orgToken);
+  };
+  reader.readAsText(file);
+}
+
+// ======================== START ========================
+function start(logText, fileName, instanceUrl, accessToken) {
+  state = { fileName, logText, org: (instanceUrl && accessToken) ? { instanceUrl, accessToken } : null };
+  analysis = analyzeLog(logText);
+  chatHistory = [];
+  automationSource = { status: 'idle', text: '' };
+  renderWorkspace();
+  if (analysis.unitName && state.org) fetchAutomationSource();
+  askInitial();
+}
+
+// ======================== LOG PARSER ========================
+// Same event model as the standalone Log Analyzer (src/assets/log-analyzer):
+// a stack of CODE_UNIT_STARTED/FINISHED gives us which unit was executing
+// when the FATAL_ERROR / EXCEPTION_THROWN line appears.
+function analyzeLog(text) {
+  const lines = text.split('\n');
+  const stack = [];
+  let errorLine = -1, errorMessage = '', failingUnit = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const p = line.split('|');
+    if (p.length < 2) continue;
+    const ev = p[1];
+
+    if (ev === 'CODE_UNIT_STARTED') {
+      const rawName = [p[4], p[3]].find(x => x && x.trim() && !x.startsWith('[')) || p[2] || 'Unknown';
+      stack.push(rawName.trim().substring(0, 150));
+    } else if (ev === 'CODE_UNIT_FINISHED') {
+      if (stack.length) stack.pop();
+    } else if ((ev === 'FATAL_ERROR' || ev === 'EXCEPTION_THROWN') && errorLine === -1) {
+      errorLine = i;
+      errorMessage = p.slice(2).join('|').trim();
+      failingUnit = stack.length ? stack[stack.length - 1] : null;
+    }
+  }
+
+  // A window of context around the failure, capped so the request stays small.
+  const from = Math.max(0, errorLine - 60);
+  const to = Math.min(lines.length, (errorLine === -1 ? lines.length : errorLine) + 15);
+  const excerpt = lines.slice(from, to).join('\n');
+
+  const { name, type } = classifyUnit(failingUnit);
+  return { unitRaw: failingUnit, unitName: name, unitType: type, errorMessage, excerpt, found: errorLine !== -1 };
+}
+
+function classifyUnit(raw) {
+  if (!raw) return { name: '', type: '' };
+  if (raw.startsWith('Flow:')) return { name: raw.substring(5).trim(), type: 'Flow' };
+  // Salesforce emits a trigger's CODE_UNIT_STARTED name as the human-readable
+  // "MyTrigger on Account trigger event BeforeInsert" text unless that slot's
+  // bracketed, in which case the parser above falls back to this marker -
+  // the actual trigger name is the segment after the slash, not before it.
+  if (raw.includes('__sfdc_trigger/')) {
+    const name = raw.split('__sfdc_trigger/').pop().trim();
+    return { name, type: 'ApexTrigger' };
+  }
+  if (/^[A-Za-z0-9_]+ on \S+ trigger event/.test(raw)) {
+    return { name: raw.split(' on ')[0].trim(), type: 'ApexTrigger' };
+  }
+  if (raw === 'execute_anonymous_apex') return { name: '', type: '' };
+  const m = raw.match(/^([A-Za-z0-9_]+)/);
+  return { name: m ? m[1] : raw, type: 'ApexClass' };
+}
+
+// ======================== FETCH AUTOMATION SOURCE ========================
+async function toolingQuery(soql) {
+  const url = `/api/proxy/tooling/query?instanceUrl=${encodeURIComponent(state.org.instanceUrl)}&sessionId=${encodeURIComponent(state.org.accessToken)}&q=${encodeURIComponent(soql)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function toolingGet(sobjectType, id) {
+  const url = `/api/proxy/tooling/sobject/${sobjectType}/${id}?instanceUrl=${encodeURIComponent(state.org.instanceUrl)}&sessionId=${encodeURIComponent(state.org.accessToken)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function fetchAutomationSource() {
+  automationSource = { status: 'loading', text: '' };
+  renderSide();
+  try {
+    if (analysis.unitType === 'ApexClass' || analysis.unitType === 'ApexTrigger') {
+      const sobject = analysis.unitType === 'ApexClass' ? 'ApexClass' : 'ApexTrigger';
+      const soql = `SELECT Body FROM ${sobject} WHERE Name = '${analysis.unitName.replace(/'/g, "\\'")}'`;
+      const data = await toolingQuery(soql);
+      const body = data.records && data.records[0] && data.records[0].Body;
+      if (!body) throw new Error(`No ${sobject} named "${analysis.unitName}" found in this org.`);
+      automationSource = { status: 'ok', text: body };
+    } else if (analysis.unitType === 'Flow') {
+      const soql = `SELECT Id, ApiName FROM Flow WHERE ApiName = '${analysis.unitName.replace(/'/g, "\\'")}' ORDER BY VersionNumber DESC LIMIT 1`;
+      const data = await toolingQuery(soql);
+      const rec = data.records && data.records[0];
+      if (!rec) throw new Error(`No Flow named "${analysis.unitName}" found in this org.`);
+      const full = await toolingGet('Flow', rec.Id);
+      automationSource = { status: 'ok', text: summarizeFlow(full.Metadata || {}) };
+    } else {
+      automationSource = { status: 'err', text: 'Could not tell which Apex class/trigger or Flow this is from the log.' };
+    }
+  } catch (e) {
+    automationSource = { status: 'err', text: String(e.message || e) };
+  }
+  renderSide();
+}
+
+// A compact plain-text summary of a Flow's elements instead of its raw JSON -
+// the nested metadata (coordinates, connector objects, per-field wrappers) is
+// mostly noise for "why did this fail". Every condition (decision outcomes,
+// record filters) and every formula's expression IS kept in full, though -
+// those are exactly where a Flow silently does the wrong thing, and Salesforce
+// does not validate a formula expression at all, so it's the one place a
+// person (or this assistant) is the only check there is.
+function fmtValue(v) {
+  if (v == null) return '(none)';
+  if (typeof v === 'object') {
+    const key = Object.keys(v).find(k => v[k] !== null && v[k] !== undefined);
+    return key ? String(v[key]) : JSON.stringify(v);
+  }
+  return String(v);
+}
+
+function fmtCondition(c) {
+  return `${c.leftValueReference || '?'} ${c.operator || '='} ${fmtValue(c.rightValue)}`;
+}
+
+function fmtConditions(conditions, logic) {
+  if (!conditions || !conditions.length) return 'no conditions (always runs)';
+  const parts = conditions.map(fmtCondition);
+  if (logic && logic !== 'and' && logic !== 'AND') return `[${logic}] ${parts.map((p,i)=>`(${i+1}) ${p}`).join('  ')}`;
+  return parts.join(' AND ');
+}
+
+function summarizeFlow(meta) {
+  const lines = [];
+  if (meta.start) {
+    const s = meta.start;
+    lines.push(`Trigger: ${s.object || '(none)'} ${s.recordTriggerType || ''} ${s.triggerType || meta.processType || ''}`.trim());
+    if (s.filters && s.filters.length) {
+      lines.push(`  Entry condition: ${fmtConditions(s.filters, s.filterLogic)}`);
+    }
+  } else {
+    lines.push(`Process type: ${meta.processType || 'unknown'}`);
+  }
+
+  if (meta.formulas && meta.formulas.length) {
+    lines.push(`\nformulas: (Salesforce does not validate these expressions - check them by hand)`);
+    for (const f of meta.formulas) {
+      lines.push(`  - ${f.name} (${f.dataType || '?'}) = ${f.expression}`);
+    }
+  }
+
+  if (meta.constants && meta.constants.length) {
+    lines.push(`\nconstants:`);
+    for (const c of meta.constants) lines.push(`  - ${c.name} = ${fmtValue(c.value)}`);
+  }
+
+  if (meta.decisions && meta.decisions.length) {
+    lines.push(`\ndecisions:`);
+    for (const d of meta.decisions) {
+      lines.push(`  - ${d.name}${d.defaultConnectorLabel ? ` (default: ${d.defaultConnectorLabel})` : ''}`);
+      for (const rule of (d.rules || [])) {
+        const next = rule.connector && rule.connector.targetReference;
+        lines.push(`      outcome "${rule.name}" when ${fmtConditions(rule.conditions, rule.conditionLogic)} -> ${next || '(nothing)'}`);
+      }
+      const defNext = d.defaultConnector && d.defaultConnector.targetReference;
+      if (defNext) lines.push(`      otherwise -> ${defNext}`);
+    }
+  }
+
+  const filteredKinds = ['recordCreates','recordUpdates','recordDeletes','recordLookups'];
+  for (const kind of filteredKinds) {
+    const arr = meta[kind];
+    if (!arr || !arr.length) continue;
+    lines.push(`\n${kind}:`);
+    for (const el of arr) {
+      const next = el.connector && el.connector.targetReference;
+      lines.push(`  - ${el.name} on ${el.object || '?'}${next ? ` -> ${next}` : ''}`);
+      if (el.filters && el.filters.length) lines.push(`      filter: ${fmtConditions(el.filters, el.filterLogic)}`);
+      if (el.inputAssignments && el.inputAssignments.length) {
+        lines.push(`      sets: ${el.inputAssignments.map(a => `${a.field}=${fmtValue(a.value)}`).join(', ')}`);
+      }
+    }
+  }
+
+  if (meta.assignments && meta.assignments.length) {
+    lines.push(`\nassignments:`);
+    for (const a of meta.assignments) {
+      const next = a.connector && a.connector.targetReference;
+      lines.push(`  - ${a.name}${next ? ` -> ${next}` : ''}`);
+      for (const item of (a.assignmentItems || [])) {
+        lines.push(`      ${item.assignToReference} ${item.operator || '='} ${fmtValue(item.value)}`);
+      }
+    }
+  }
+
+  const otherKinds = ['loops','actionCalls','subflows','screens'];
+  for (const kind of otherKinds) {
+    const arr = meta[kind];
+    if (!arr || !arr.length) continue;
+    lines.push(`\n${kind}:`);
+    for (const el of arr) {
+      const next = el.connector && el.connector.targetReference;
+      const details = el.actionName ? ` (${el.actionName})` : (el.flowName ? ` (${el.flowName})` : '');
+      lines.push(`  - ${el.name}${details}${next ? ` -> ${next}` : ''}`);
+    }
+  }
+
+  return lines.join('\n').substring(0, 30000);
+}
+
+// ======================== CHAT ========================
+async function askInitial() {
+  addMessage('assistant-thinking');
+  await sendToBackend('What went wrong here, and what should I change to fix it?');
+}
+
+async function sendToBackend(question) {
+  chatHistory.push({ role: 'user', content: question });
+  try {
+    const res = await fetch('/api/ai-error-assist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        logExcerpt: analysis.excerpt,
+        automationName: analysis.unitName,
+        automationType: analysis.unitType,
+        automationSource: automationSource.status === 'ok' ? automationSource.text : '',
+        messages: chatHistory,
+      }),
+    });
+    removeThinking();
+    if (!res.ok) {
+      const detail = (await res.json().catch(() => ({}))).detail || res.statusText;
+      addMessage('err', detail);
+      return;
+    }
+    const data = await res.json();
+    chatHistory.push({ role: 'assistant', content: data.reply });
+    addMessage('assistant', data.reply);
+  } catch (e) {
+    removeThinking();
+    addMessage('err', String(e.message || e));
+  }
+}
+
+function addMessage(kind, text) {
+  const log = $('chatLog');
+  if (!log) return;
+  const div = document.createElement('div');
+  if (kind === 'assistant-thinking') {
+    div.className = 'msg thinking';
+    div.id = 'thinkingMsg';
+    div.innerHTML = `Reading the log <span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
+  } else if (kind === 'err') {
+    div.className = 'msg err';
+    div.textContent = text;
+  } else {
+    div.className = `msg ${kind}`;
+    div.textContent = text;
+  }
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function removeThinking() {
+  const el = $('thinkingMsg');
+  if (el) el.remove();
+}
+
+function submitQuestion() {
+  const input = $('composerInput');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  input.disabled = true;
+  $('composerBtn').disabled = true;
+  addMessage('user', q);
+  addMessage('assistant-thinking');
+  sendToBackend(q).finally(() => {
+    input.disabled = false;
+    $('composerBtn').disabled = false;
+    input.focus();
+  });
+}
+
+// ======================== RENDER ========================
+function renderWorkspace() {
+  main.innerHTML = `
+    <div class="workspace">
+      <div class="toolbar">
+        <button class="back-btn" onclick="showDropZone()"><span class="icon">arrow_back</span></button>
+        <div>
+          <h3>${esc(state.fileName)}</h3>
+          <div class="meta">
+            <span>${analysis.found ? 'Failure found' : 'No FATAL_ERROR/EXCEPTION_THROWN found'}</span>
+            ${analysis.unitName ? `<span>${esc(analysis.unitType)}: ${esc(analysis.unitName)}</span>` : ''}
+          </div>
+        </div>
+        <div class="spacer"></div>
+        ${analysis.unitName ? `<div class="automation-badge"><span class="icon">bug_report</span>${esc(analysis.unitType)}</div>` : ''}
+      </div>
+      <div class="body">
+        <div class="side" id="side"></div>
+        <div class="chat">
+          <div class="chat-log" id="chatLog"></div>
+          <div class="scope-note">Scoped to this log and this automation only &mdash; not a general Salesforce/Apex chat.</div>
+          <div class="composer">
+            <input id="composerInput" placeholder="Ask a follow-up about this error..." onkeydown="if(event.key==='Enter')submitQuestion()">
+            <button id="composerBtn" onclick="submitQuestion()"><span class="icon">send</span>Ask</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  renderSide();
+}
+
+function renderSide() {
+  const side = $('side');
+  if (!side) return;
+  let html = '';
+  html += `<h4><span class="icon">error</span>Error</h4>`;
+  html += analysis.errorMessage
+    ? `<div class="err-msg">${esc(analysis.errorMessage)}</div>`
+    : `<div class="err-msg">No FATAL_ERROR or EXCEPTION_THROWN line found in this log.</div>`;
+
+  html += `<h4><span class="icon">description</span>Log excerpt</h4><pre>${esc(analysis.excerpt || '(empty)')}</pre>`;
+
+  html += `<h4><span class="icon">code</span>Automation source</h4>`;
+  if (!state.org) {
+    html += `<div class="src-status">Not connected to an org &mdash; analysis uses the log only.</div>`;
+  } else if (automationSource.status === 'loading') {
+    html += `<div class="src-status">Fetching ${esc(analysis.unitName)}&hellip;</div>`;
+  } else if (automationSource.status === 'ok') {
+    html += `<div class="src-status ok"><span class="icon">check_circle</span>Fetched from the org</div><pre>${esc(automationSource.text.substring(0,4000))}</pre>`;
+  } else if (automationSource.status === 'err') {
+    html += `<div class="src-status err"><span class="icon">warning</span>${esc(automationSource.text)}</div>`;
+  }
+  side.innerHTML = html;
+}
+
+function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ======================== INIT ========================
+initOAuthFromHash();
+showDropZone();
+
+// ======================== HOST EMBEDDING ========================
+// Lets the debug tool feed this page a log (plus the browser's own Salesforce
+// session) via postMessage, the same handshake src/assets/log-analyzer uses.
+window.addEventListener('message', (event) => {
+  if (event.origin !== window.location.origin) return;
+  const msg = event.data;
+  if (msg && msg.type === 'sfdc-ai-error-assist:load') {
+    start(msg.text, msg.fileName || 'debug.log', msg.instanceUrl, msg.accessToken);
+  }
+});
+if (window.opener) {
+  window.opener.postMessage({ type: 'sfdc-ai-error-assist:ready' }, window.location.origin);
+}
+</script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import {MatDialog, MAT_DIALOG_DATA,MatDialogConfig} from '@angular/material/dial
 import {FixedSizeVirtualScrollStrategy, VIRTUAL_SCROLL_STRATEGY} from '@angular/cdk/scrolling';
 import { DataService } from '../../services/data.service';
 import { LogAnalyzerService } from '../../services/log-analyzer.service';
+import { AiErrorAssistantService } from '../../services/ai-error-assistant.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -26,7 +27,7 @@ export class DebugItemComponent implements OnInit, OnDestroy  {
   openNewLogTab:boolean;
   chiledWindowClosed = false;
   @Input() GMToffSet :number;
-  constructor(private SFAPIService:SFAPIService ,public dialog: MatDialog,private data: DataService,private logAnalyzerService: LogAnalyzerService) {
+  constructor(private SFAPIService:SFAPIService ,public dialog: MatDialog,private data: DataService,private logAnalyzerService: LogAnalyzerService,private aiErrorAssistantService: AiErrorAssistantService) {
     
     
    }
@@ -104,6 +105,21 @@ export class DebugItemComponent implements OnInit, OnDestroy  {
         this.Debug['textFile'] = log;
         this.Debug['textFileStatuse'] = 'done';
         this.logAnalyzerService.open(log, this.Debug.Id + '.log');
+      });
+    }
+  }
+
+  aiErrorAssist():void{
+    console.log('aiErrorAssist id',this.Debug.Id);
+    if(this.Debug['textFile']){
+      this.aiErrorAssistantService.open(this.Debug['textFile'], this.Debug.Id + '.log', this.credentials);
+    }
+    else{
+      this.Debug['textFileStatuse'] = 'downloading';
+      this.SFAPIService.getLogText(this.Debug.Id,this.credentials).subscribe(log => {
+        this.Debug['textFile'] = log;
+        this.Debug['textFileStatuse'] = 'done';
+        this.aiErrorAssistantService.open(log, this.Debug.Id + '.log', this.credentials);
       });
     }
   }
