@@ -19,7 +19,15 @@ export class AuthorizationComponent implements OnInit {
   }
 
   SBLogin():void{
-    window.location.replace('https://test.salesforce.com/services/oauth2/authorize?response_type=token&client_id=3MVG9cHH2bfKACZZQA1CTUaBxcVq7LqNuaBjebe2JAgp45yVcYsQOyfuqdtY.NMubnAKoEL_huQns.Oj3G7kO&redirect_uri='+window.location.origin+'&state=mystate');
+    window.location.replace(this.sandboxAuthUrl());
+  }
+
+  SBLoginClear():void{
+    window.location.replace(this.sandboxAuthUrl() + '&prompt=login');
+  }
+
+  private sandboxAuthUrl(): string {
+    return 'https://test.salesforce.com/services/oauth2/authorize?response_type=token&client_id=3MVG9cHH2bfKACZZQA1CTUaBxcVq7LqNuaBjebe2JAgp45yVcYsQOyfuqdtY.NMubnAKoEL_huQns.Oj3G7kO&redirect_uri='+window.location.origin+'&state=mystate';
   }
 
   connectManual(instanceUrl: string, sessionId: string): void {

@@ -13,7 +13,10 @@
                 </div>
                 <h1>Sign in with Salesforce</h1>
                 <button class="btn-production" (click)="PRDLogin()">Production</button>
-                <button class="btn-sandbox" (click)="SBLogin()">Sandbox</button>
+                <div class="split-btn">
+                    <button class="btn-sandbox split-btn-main" (click)="SBLogin()">Sandbox</button>
+                    <button class="btn-sandbox split-btn-side" (click)="SBLoginClear()">Login</button>
+                </div>
                 <p class="auth-note">Authenticates via OAuth 2.0 &mdash; no credentials are stored on any server</p>
             </div>
 
