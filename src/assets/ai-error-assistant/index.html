@@ -149,15 +149,22 @@ function disconnectOrg() {
   showDropZone();
 }
 
-async function fetchClientId() {
-  if (sfClientId !== null) return sfClientId;
+let appConfigLoaded = false;
+async function fetchAppConfig() {
+  if (appConfigLoaded) return;
+  appConfigLoaded = true;
   try {
     const res = await fetch('/api/config');
     const data = await res.json();
     sfClientId = data.clientId || '';
+    if (data.aiErrorAssistMaxQuestions) MAX_QUESTIONS = data.aiErrorAssistMaxQuestions;
   } catch (e) {
-    sfClientId = '';
+    sfClientId = sfClientId || '';
   }
+}
+
+async function fetchClientId() {
+  await fetchAppConfig();
   return sfClientId;
 }
 
@@ -233,6 +240,7 @@ function start(logText, fileName, instanceUrl, accessToken) {
   state = { fileName, logText, org: (instanceUrl && accessToken) ? { instanceUrl, accessToken } : null };
   analysis = analyzeLog(logText);
   chatHistory = [];
+  questionCount = 0;
   automationSource = { status: 'idle', text: '' };
   renderWorkspace();
   if (analysis.unitName && state.org) fetchAutomationSource();
@@ -442,9 +450,17 @@ function summarizeFlow(meta) {
 }
 
 // ======================== CHAT ========================
+// Caps spend on a single log - see submitQuestion(). Overridable via the
+// AI_ERROR_ASSIST_MAX_QUESTIONS Heroku config var (read through /api/config,
+// same place SF_CLIENT_ID already comes from); 5 when that var is unset.
+let MAX_QUESTIONS = 5;
+let questionCount = 0;
+
 async function askInitial() {
+  questionCount++;
   addMessage('assistant-thinking');
   await sendToBackend('What went wrong here, and what should I change to fix it?');
+  updateComposerLimit();
 }
 
 async function sendToBackend(question) {
@@ -501,19 +517,39 @@ function removeThinking() {
 }
 
 function submitQuestion() {
+  if (questionCount >= MAX_QUESTIONS) return;
   const input = $('composerInput');
   const q = input.value.trim();
   if (!q) return;
+  questionCount++;
   input.value = '';
   input.disabled = true;
   $('composerBtn').disabled = true;
   addMessage('user', q);
   addMessage('assistant-thinking');
   sendToBackend(q).finally(() => {
-    input.disabled = false;
-    $('composerBtn').disabled = false;
+    updateComposerLimit();
     input.focus();
   });
+}
+
+// Caps a single log's conversation at MAX_QUESTIONS turns - this is a
+// per-error diagnostic chat, not an open-ended assistant, and each turn
+// resends the full log/source context (see sendToBackend), so cost grows
+// with every question asked.
+function updateComposerLimit() {
+  const input = $('composerInput');
+  const btn = $('composerBtn');
+  const note = $('scopeNote');
+  if (!input || !btn) return;
+  const reached = questionCount >= MAX_QUESTIONS;
+  input.disabled = reached;
+  btn.disabled = reached;
+  if (note) {
+    note.textContent = reached
+      ? `Question limit reached (${MAX_QUESTIONS}/${MAX_QUESTIONS}) - open a new log to keep asking.`
+      : `Scoped to this log and this automation only — not a general Salesforce/Apex chat. (${questionCount}/${MAX_QUESTIONS} questions used)`;
+  }
 }
 
 // ======================== RENDER ========================
@@ -536,7 +572,7 @@ function renderWorkspace() {
         <div class="side" id="side"></div>
         <div class="chat">
           <div class="chat-log" id="chatLog"></div>
-          <div class="scope-note">Scoped to this log and this automation only &mdash; not a general Salesforce/Apex chat.</div>
+          <div class="scope-note" id="scopeNote">Scoped to this log and this automation only &mdash; not a general Salesforce/Apex chat. (0/${MAX_QUESTIONS} questions used)</div>
           <div class="composer">
             <input id="composerInput" placeholder="Ask a follow-up about this error..." onkeydown="if(event.key==='Enter')submitQuestion()">
             <button id="composerBtn" onclick="submitQuestion()"><span class="icon">send</span>Ask</button>
@@ -575,6 +611,7 @@ function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replac
 
 // ======================== INIT ========================
 initOAuthFromHash();
+fetchAppConfig(); // kicks off early so MAX_QUESTIONS is set before any askInitial() call
 showDropZone();
 
 // ======================== HOST EMBEDDING ========================

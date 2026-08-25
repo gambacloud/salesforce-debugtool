@@ -110,7 +110,14 @@ def sitemap_xml():
 
 @app.get("/api/config")
 def get_config():
-    return {"clientId": os.environ.get("SF_CLIENT_ID", "")}
+    try:
+        max_questions = int(os.environ.get("AI_ERROR_ASSIST_MAX_QUESTIONS", "5"))
+    except ValueError:
+        max_questions = 5
+    return {
+        "clientId": os.environ.get("SF_CLIENT_ID", ""),
+        "aiErrorAssistMaxQuestions": max_questions,
+    }
 
 @app.get("/.well-known/appspecific/com.chrome.devtools.json")
 def chrome_devtools():
@@ -460,6 +467,17 @@ async def ai_error_assist(req: AiErrorAssistRequest):
         raise HTTPException(status_code=400, detail="No log content to analyze")
     if not req.messages:
         raise HTTPException(status_code=400, detail="No question to answer")
+
+    try:
+        max_questions = int(os.environ.get("AI_ERROR_ASSIST_MAX_QUESTIONS", "5"))
+    except ValueError:
+        max_questions = 5
+    asked = sum(1 for m in req.messages if m.role == "user")
+    if asked > max_questions:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Question limit reached ({max_questions}) for this log.",
+        )
 
     try:
         # No provider name passed - picks whichever key this deployment
