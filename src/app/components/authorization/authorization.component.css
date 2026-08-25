@@ -110,12 +110,12 @@ button:active {
 .split-btn-side {
     flex: 1;
     min-width: 0;
-    border-radius: 8px !important;
     position: relative;
     transition: background 0.2s, transform 0.1s;
 }
 
 .split-btn-main {
+    border-radius: 8px 0 0 8px !important;
     clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
     margin-right: -14px;
     padding-right: 20px;
@@ -123,6 +123,7 @@ button:active {
 }
 
 .split-btn-side {
+    border-radius: 0 8px 8px 0 !important;
     clip-path: polygon(14px 0, 100% 0, 100% 100%, 0 100%);
     padding-left: 20px;
     z-index: 0;
