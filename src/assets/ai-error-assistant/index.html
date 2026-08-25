@@ -76,6 +76,8 @@ header{padding:.75rem 2rem;display:flex;align-items:center;border-bottom:1px sol
 .src-status{font-size:.72rem;color:var(--dim);margin:0 0 1.25rem;display:flex;align-items:center;gap:.4rem}
 .src-status.ok{color:#34d399}
 .src-status.err{color:#fbbf24}
+.setup-link{display:inline-flex;align-items:center;gap:.35rem;font-size:.78rem;color:#60a5fa;text-decoration:none;margin:0 0 1.25rem;padding:.4rem .1rem}
+.setup-link:hover{text-decoration:underline}
 
 .chat{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .chat-log{flex:1;overflow-y:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1rem}
@@ -257,7 +259,7 @@ function start(logText, fileName, instanceUrl, accessToken) {
 function analyzeLog(text) {
   const lines = text.split('\n');
   const stack = [];
-  let errorLine = -1, errorMessage = '', failingUnit = null;
+  let errorLine = -1, errorMessage = '', failingUnit = null, errorSourceLine = null;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -274,6 +276,12 @@ function analyzeLog(text) {
       errorLine = i;
       errorMessage = p.slice(2).join('|').trim();
       failingUnit = stack.length ? stack[stack.length - 1] : null;
+      // EXCEPTION_THROWN carries the Apex source line as a "[N]" marker right
+      // after the event name (Salesforce's own statement-line convention) -
+      // when present, it lets the Apex snippet below center on the real spot
+      // instead of guessing from the top of the class.
+      const lineMatch = p[2] && p[2].match(/^\[(\d+)\]$/);
+      errorSourceLine = lineMatch ? parseInt(lineMatch[1], 10) : null;
     }
   }
 
@@ -283,7 +291,7 @@ function analyzeLog(text) {
   const excerpt = lines.slice(from, to).join('\n');
 
   const { name, type } = classifyUnit(failingUnit);
-  return { unitRaw: failingUnit, unitName: name, unitType: type, errorMessage, excerpt, found: errorLine !== -1 };
+  return { unitRaw: failingUnit, unitName: name, unitType: type, errorMessage, errorSourceLine, excerpt, found: errorLine !== -1 };
 }
 
 function classifyUnit(raw) {
@@ -320,24 +328,57 @@ async function toolingGet(sobjectType, id) {
   return res.json();
 }
 
+function normalizeInstanceUrl(url) {
+  return url.replace(/\/+$/, '');
+}
+
+// A snippet, not the whole class - a few dozen lines around the line the
+// exception actually names is enough for the model (and a person) to see
+// what broke, without paying to read the rest of the class every question.
+// Falls back to the head of the file when there's no usable line number
+// (e.g. the error came from FATAL_ERROR/FLOW_ELEMENT_ERROR, which don't
+// carry one) rather than silently showing nothing.
+function buildApexSnippet(body, lineNum) {
+  const lines = body.split('\n');
+  if (!lineNum || lineNum < 1 || lineNum > lines.length) {
+    if (lines.length <= 40) return body;
+    return `(no source line reported - showing the first 40 of ${lines.length} lines)\n`
+      + lines.slice(0, 40).map((l, i) => `${i + 1}: ${l}`).join('\n');
+  }
+  const context = 20;
+  const from = Math.max(0, lineNum - context - 1);
+  const to = Math.min(lines.length, lineNum + context);
+  const numbered = lines.slice(from, to).map((l, i) => `${from + i + 1}: ${l}`).join('\n');
+  return `(lines ${from + 1}-${to} of ${lines.length}, around the failing line ${lineNum})\n${numbered}`;
+}
+
 async function fetchAutomationSource() {
   automationSource = { status: 'loading', text: '' };
   renderSide();
   try {
     if (analysis.unitType === 'ApexClass' || analysis.unitType === 'ApexTrigger') {
       const sobject = analysis.unitType === 'ApexClass' ? 'ApexClass' : 'ApexTrigger';
-      const soql = `SELECT Body FROM ${sobject} WHERE Name = '${analysis.unitName.replace(/'/g, "\\'")}'`;
+      const soql = `SELECT Id, Body FROM ${sobject} WHERE Name = '${analysis.unitName.replace(/'/g, "\\'")}'`;
       const data = await toolingQuery(soql);
-      const body = data.records && data.records[0] && data.records[0].Body;
-      if (!body) throw new Error(`No ${sobject} named "${analysis.unitName}" found in this org.`);
-      automationSource = { status: 'ok', text: body };
+      const rec = data.records && data.records[0];
+      if (!rec || !rec.Body) throw new Error(`No ${sobject} named "${analysis.unitName}" found in this org.`);
+      const snippet = buildApexSnippet(rec.Body, analysis.errorSourceLine);
+      const setupPage = sobject === 'ApexClass' ? 'ApexClasses' : 'ApexTriggers';
+      const setupUrl = `${normalizeInstanceUrl(state.org.instanceUrl)}/lightning/setup/${setupPage}/page?address=%2F${rec.Id}`;
+      automationSource = { status: 'ok', kind: 'apex', text: snippet, setupUrl };
     } else if (analysis.unitType === 'Flow') {
       const soql = `SELECT Id, ApiName FROM Flow WHERE ApiName = '${analysis.unitName.replace(/'/g, "\\'")}' ORDER BY VersionNumber DESC LIMIT 1`;
       const data = await toolingQuery(soql);
       const rec = data.records && data.records[0];
       if (!rec) throw new Error(`No Flow named "${analysis.unitName}" found in this org.`);
       const full = await toolingGet('Flow', rec.Id);
-      automationSource = { status: 'ok', text: summarizeFlow(full.Metadata || {}) };
+      // The full condition/formula summary still goes to the model (see
+      // sendToBackend) - only the human-facing panel gets just a link, since
+      // a person can open Flow Builder and see the real diagram far better
+      // than any text rendering of it here.
+      const summary = summarizeFlow(full.Metadata || {});
+      const setupUrl = `${normalizeInstanceUrl(state.org.instanceUrl)}/builder_platform_interaction/flowBuilder.app?flowId=${rec.Id}`;
+      automationSource = { status: 'ok', kind: 'flow', text: summary, setupUrl };
     } else {
       automationSource = { status: 'err', text: 'Could not tell which Apex class/trigger or Flow this is from the log.' };
     }
@@ -602,8 +643,17 @@ function renderSide() {
     html += `<div class="src-status">Not connected to an org &mdash; analysis uses the log only.</div>`;
   } else if (automationSource.status === 'loading') {
     html += `<div class="src-status">Fetching ${esc(analysis.unitName)}&hellip;</div>`;
+  } else if (automationSource.status === 'ok' && automationSource.kind === 'flow') {
+    // A Flow's own diagram in Flow Builder is far more useful than any text
+    // rendering of it here - the conditions/formulas still went to the model
+    // (see sendToBackend), this panel just doesn't duplicate them as a wall
+    // of text a person would have to read instead of the real thing.
+    html += `<div class="src-status ok"><span class="icon">check_circle</span>Found ${esc(analysis.unitName)} in the org</div>
+      <a class="setup-link" href="${esc(automationSource.setupUrl)}" target="_blank" rel="noopener"><span class="icon">open_in_new</span>Open in Flow Builder</a>`;
   } else if (automationSource.status === 'ok') {
-    html += `<div class="src-status ok"><span class="icon">check_circle</span>Fetched from the org</div><pre>${esc(automationSource.text.substring(0,4000))}</pre>`;
+    html += `<div class="src-status ok"><span class="icon">check_circle</span>Fetched from the org</div>
+      <pre>${esc(automationSource.text)}</pre>
+      <a class="setup-link" href="${esc(automationSource.setupUrl)}" target="_blank" rel="noopener"><span class="icon">open_in_new</span>Open ${esc(analysis.unitType)} in Setup</a>`;
   } else if (automationSource.status === 'err') {
     html += `<div class="src-status err"><span class="icon">warning</span>${esc(automationSource.text)}</div>`;
   }
