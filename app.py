@@ -37,13 +37,14 @@ if os.path.isdir(DEPLOY_STATIC_DIR):
 
 # Natural-language flow builder - a separate FastAPI app (its own repo, own
 # static assets, own /api/*), mounted whole rather than merged route by route.
-from server import app as flow_tool_app  # noqa: E402
+from server import app as flow_tool_app, build_provider  # noqa: E402
 
 app.mount("/flow-tool", flow_tool_app)
 
-# Reuses flow-tool's own LLM provider (bring-your-own-key, same ANTHROPIC_API_KEY
-# config var) instead of a second Anthropic integration living in this file.
-from flowtool.llm import AnthropicProvider, Message, LLMError  # noqa: E402
+# Reuses flow-tool's own provider selection (whichever of GEMINI_API_KEY /
+# ANTHROPIC_API_KEY / OLLAMA_API_KEY is actually set picks the provider - this
+# deployment currently only has a Gemini key) instead of hardcoding Anthropic.
+from flowtool.llm import Message, LLMError  # noqa: E402
 
 
 @app.get("/flow-tool")
@@ -460,9 +461,12 @@ async def ai_error_assist(req: AiErrorAssistRequest):
     if not req.messages:
         raise HTTPException(status_code=400, detail="No question to answer")
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="AI Error Assistance is not configured")
+    try:
+        # No provider name passed - picks whichever key this deployment
+        # actually has configured, same resolution flow-tool itself uses.
+        provider = build_provider(None, None, "medium")
+    except LLMError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     context = f"Failing log excerpt:\n{req.logExcerpt[:12000]}\n"
     if req.automationName:
@@ -470,7 +474,6 @@ async def ai_error_assist(req: AiErrorAssistRequest):
     if req.automationSource:
         context += f"\nAutomation source:\n{req.automationSource[:30000]}\n"
 
-    provider = AnthropicProvider(api_key=api_key)
     messages = [Message(role="user", content=context)]
     for m in req.messages:
         messages.append(Message(role=m.role, content=m.content))
