@@ -727,7 +727,7 @@ function renderWorkspace() {
             <input id="composerInput" placeholder="Ask a follow-up about this error..." onkeydown="if(event.key==='Enter')submitQuestion()">
             <button id="composerBtn" onclick="submitQuestion()"><span class="icon">send</span>Ask</button>
             ${AUTO_FIX_KIND[analysis.unitType] && state.org ? `
-            <button id="autoFixBtn" class="auto-fix-btn" onclick="autoFix()" title="Import this ${analysis.unitType === 'Flow' ? 'flow' : analysis.unitType === 'ApexClass' ? 'class' : 'trigger'} into flow-tool and draft a fix from the conversation so far"><span class="icon">auto_fix_high</span>Auto-Fix</button>
+            <button id="autoFixBtn" class="auto-fix-btn" onclick="autoFix()" disabled title="Waiting to confirm this exists in the org&hellip;"><span class="icon">auto_fix_high</span>Auto-Fix</button>
             ` : ''}
           </div>
         </div>
@@ -791,6 +791,29 @@ function renderSide() {
   }
 
   side.innerHTML = html;
+  updateAutoFixButton();
+}
+
+// Auto-Fix can only import something that's actually confirmed present in
+// the org - automationSource resolves asynchronously (fetchAutomationSource),
+// so the button starts disabled (see renderWorkspace) and only lights up
+// once that fetch comes back 'ok'. Left disabled on 'err' (e.g. the class
+// was deleted/renamed since this log ran) rather than letting a click import
+// nothing and surface a confusing failure a step later.
+function updateAutoFixButton() {
+  const btn = $('autoFixBtn');
+  if (!btn) return;
+  const kindLabel = analysis.unitType === 'Flow' ? 'flow' : analysis.unitType === 'ApexClass' ? 'class' : 'trigger';
+  if (automationSource.status === 'ok') {
+    btn.disabled = false;
+    btn.title = `Import this ${kindLabel} into flow-tool and draft a fix from the conversation so far`;
+  } else if (automationSource.status === 'err') {
+    btn.disabled = true;
+    btn.title = `Can't import - ${automationSource.text}`;
+  } else {
+    btn.disabled = true;
+    btn.title = 'Waiting to confirm this exists in the org…';
+  }
 }
 
 function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
