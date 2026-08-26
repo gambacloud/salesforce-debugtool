@@ -324,14 +324,31 @@ function analyzeLog(text) {
     }
   }
 
-  // Salesforce logs EXCEPTION_THROWN and then FATAL_ERROR for the very same
-  // exception when it's uncaught - collapse those (same message) into one
-  // entry so a single real exception doesn't get listed twice.
-  const seen = new Set();
+  // Salesforce logs the same real failure twice under two event names: an
+  // uncaught Apex exception gets EXCEPTION_THROWN then FATAL_ERROR (with the
+  // "[N]|" prefix already stripped above), and a failed Flow element gets
+  // FLOW_ELEMENT_ERROR (errorMessage plus |-joined element/type/version) then
+  // often FATAL_ERROR with just the bare errorMessage. Both pairs share the
+  // same leading text before any trailing "|" - use just that as the dedup
+  // key, and keep whichever of the two carries more detail (FLOW_ELEMENT_ERROR's
+  // element info, or the longer of two otherwise-identical messages).
+  function coreMessage(msg) {
+    const pipeIdx = msg.indexOf('|');
+    return pipeIdx === -1 ? msg : msg.slice(0, pipeIdx);
+  }
+  const seen = new Map(); // core message -> index into allErrors
   const allErrors = [];
   for (const e of events) {
-    if (seen.has(e.message)) continue;
-    seen.add(e.message);
+    const core = coreMessage(e.message);
+    if (seen.has(core)) {
+      const idx = seen.get(core);
+      if (e.message.length > allErrors[idx].message.length) {
+        const cls = classifyUnit(e.unitRaw);
+        allErrors[idx] = { lineNumber: e.lineIndex + 1, message: e.message, unitName: cls.name, unitType: cls.type };
+      }
+      continue;
+    }
+    seen.set(core, allErrors.length);
     const cls = classifyUnit(e.unitRaw);
     allErrors.push({ lineNumber: e.lineIndex + 1, message: e.message, unitName: cls.name, unitType: cls.type });
   }
