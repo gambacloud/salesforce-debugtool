@@ -368,25 +368,30 @@ async def list_metadata(req: ListMetadataRequest):
     return result
 
 
+# Heroku's router hard-kills any request after 30s (H12), regardless of the app's own
+# timeout config. Stop paginating before that so we return partial results instead of
+# the router's generic error page.
+_QUERY_TIME_BUDGET_SECONDS = 25.0
+
 @app.get("/api/proxy/query")
 async def standard_query(instanceUrl: str, sessionId: str, q: str):
     instance_url = instanceUrl.rstrip('/')
     instance_url = instance_url if instance_url.startswith("http") else f"https://{instance_url}"
     headers = {"Authorization": f"Bearer {sessionId}", "Accept": "application/json"}
     all_records = []
+    deadline = asyncio.get_event_loop().time() + _QUERY_TIME_BUDGET_SECONDS
     res = await _http_client.get(f"{instance_url}/services/data/v58.0/query", params={"q": q}, headers=headers)
     if res.status_code != 200:
         raise HTTPException(status_code=res.status_code, detail=res.text)
     data = res.json()
     all_records.extend(data.get("records", []))
-    while not data.get("done", True) and data.get("nextRecordsUrl"):
+    while not data.get("done", True) and data.get("nextRecordsUrl") and asyncio.get_event_loop().time() < deadline:
         res = await _http_client.get(f"{instance_url}{data['nextRecordsUrl']}", headers=headers)
         if res.status_code != 200:
             raise HTTPException(status_code=res.status_code, detail=res.text)
         data = res.json()
         all_records.extend(data.get("records", []))
     data["records"] = all_records
-    data["done"] = True
     data["totalSize"] = len(all_records)
     return data
 
