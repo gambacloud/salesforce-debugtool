@@ -118,9 +118,18 @@ export class DebugItemComponent implements OnInit, OnDestroy  {
     return (status || '').trim().toLowerCase() === 'success';
   }
 
+  // A quick client-side check, not the full parser the AI Error Assistance
+  // page itself runs - just enough to know whether a Success log is worth
+  // the red "found something" color, so the row's icon reflects what's
+  // actually inside the log text once it's been downloaded and looked at.
+  private markHandledException(logText: string): void {
+    this.Debug['hasHandledException'] = /EXCEPTION_THROWN|FLOW_ELEMENT_ERROR/.test(logText);
+  }
+
   aiErrorAssist():void{
     console.log('aiErrorAssist id',this.Debug.Id);
     if(this.Debug['textFile']){
+      this.markHandledException(this.Debug['textFile']);
       this.aiErrorAssistantService.open(this.Debug['textFile'], this.Debug.Id + '.log', this.credentials);
     }
     else{
@@ -128,6 +137,7 @@ export class DebugItemComponent implements OnInit, OnDestroy  {
       this.SFAPIService.getLogText(this.Debug.Id,this.credentials).subscribe(log => {
         this.Debug['textFile'] = log;
         this.Debug['textFileStatuse'] = 'done';
+        this.markHandledException(log);
         this.aiErrorAssistantService.open(log, this.Debug.Id + '.log', this.credentials);
       });
     }
