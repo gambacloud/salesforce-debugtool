@@ -109,6 +109,15 @@ export class DebugItemComponent implements OnInit, OnDestroy  {
     }
   }
 
+  // ApexLog.Status is "Success" for a clean run, or the exception/failure text
+  // otherwise - trim/lower-case the comparison so a stray trailing space or a
+  // differently-cased value some log types return doesn't misclassify a
+  // successful log as a failure (or the reverse) for the AI Error Assistance
+  // button's visibility.
+  isSuccessStatus(status: string): boolean {
+    return (status || '').trim().toLowerCase() === 'success';
+  }
+
   aiErrorAssist():void{
     console.log('aiErrorAssist id',this.Debug.Id);
     if(this.Debug['textFile']){
