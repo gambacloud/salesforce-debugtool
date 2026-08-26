@@ -641,10 +641,10 @@ function updateComposerLimit() {
 // ======================== AUTO-FIX (hands off to flow-tool) ========================
 // flow-tool is mounted at /flow-tool in this same app (see app.py), so these
 // are same-origin calls straight to its API - no new backend of our own.
-// Only wired up for Flow: flow-tool can import+refine an existing Flow
-// (FlowGenerator.adopt()), but has no equivalent "adopt" for an existing
-// Apex class, only "generate one from a description" - offering Auto-Fix
-// there would mean silently rewriting the whole class from scratch.
+// Wired up for Flow and Apex class (both now support import+refine of an
+// existing org artifact - /api/import/start's `kind` field picks which).
+// Not Apex trigger: flow-tool's retrieve_apex_class() only queries the
+// ApexClass object, so a trigger has nothing to import there yet.
 async function flowToolApi(path, body) {
   const res = await fetch(`/flow-tool/${path}`, {
     method: 'POST',
@@ -667,8 +667,9 @@ async function flowToolPoll(path, params) {
   }
 }
 
-async function autoFixFlow() {
+async function autoFix() {
   const btn = $('autoFixBtn');
+  const kind = analysis.unitType === 'Flow' ? 'flow' : 'apex';
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="icon">hourglass_top</span>Importing into flow-tool&hellip;'; }
   try {
     const lastAssistant = [...chatHistory].reverse().find(m => m.role === 'assistant');
@@ -678,6 +679,7 @@ async function autoFixFlow() {
 
     const importJob = await flowToolApi('api/import/start', {
       api_name: analysis.unitName,
+      kind,
       instance_url: state.org.instanceUrl,
       access_token: state.org.accessToken,
     });
@@ -722,8 +724,8 @@ function renderWorkspace() {
           <div class="composer">
             <input id="composerInput" placeholder="Ask a follow-up about this error..." onkeydown="if(event.key==='Enter')submitQuestion()">
             <button id="composerBtn" onclick="submitQuestion()"><span class="icon">send</span>Ask</button>
-            ${analysis.unitType === 'Flow' && state.org ? `
-            <button id="autoFixBtn" class="auto-fix-btn" onclick="autoFixFlow()" title="Import this flow into flow-tool and draft a fix from the conversation so far"><span class="icon">auto_fix_high</span>Auto-Fix</button>
+            ${(analysis.unitType === 'Flow' || analysis.unitType === 'ApexClass') && state.org ? `
+            <button id="autoFixBtn" class="auto-fix-btn" onclick="autoFix()" title="Import this ${analysis.unitType === 'Flow' ? 'flow' : 'class'} into flow-tool and draft a fix from the conversation so far"><span class="icon">auto_fix_high</span>Auto-Fix</button>
             ` : ''}
           </div>
         </div>
