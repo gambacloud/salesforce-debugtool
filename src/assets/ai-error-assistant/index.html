@@ -74,7 +74,8 @@ header{padding:.75rem 2rem;display:flex;align-items:center;border-bottom:1px sol
 .side h4{margin:0 0 .5rem;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);display:flex;align-items:center;gap:.35rem}
 .side h4 .icon{font-size:.95rem}
 .side pre{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:8px;padding:.65rem .75rem;font-family:var(--mono);font-size:.72rem;line-height:1.5;white-space:pre-wrap;word-break:break-word;color:#cbd5e1;max-height:220px;overflow-y:auto;margin:0 0 1.25rem}
-.err-msg{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:.65rem .75rem;font-size:.78rem;color:#fca5a5;margin:0 0 1.25rem;line-height:1.5}
+.err-msg{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:.65rem .75rem;font-size:.78rem;color:#fca5a5;margin:0 0 .6rem;line-height:1.5}
+.err-num{font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:var(--dim);margin-bottom:.3rem}
 .src-status{font-size:.72rem;color:var(--dim);margin:0 0 1.25rem;display:flex;align-items:center;gap:.4rem}
 .src-status.ok{color:#34d399}
 .src-status.err{color:#fbbf24}
@@ -289,7 +290,7 @@ function start(logText, fileName, instanceUrl, accessToken) {
 function analyzeLog(text) {
   const lines = text.split('\n');
   const stack = [];
-  let errorLine = -1, errorMessage = '', failingUnit = null, errorSourceLine = null;
+  const events = []; // every FATAL_ERROR/EXCEPTION_THROWN/FLOW_ELEMENT_ERROR seen, not just the first
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -302,26 +303,59 @@ function analyzeLog(text) {
       stack.push(rawName.trim().substring(0, 150));
     } else if (ev === 'CODE_UNIT_FINISHED') {
       if (stack.length) stack.pop();
-    } else if ((ev === 'FATAL_ERROR' || ev === 'EXCEPTION_THROWN' || ev === 'FLOW_ELEMENT_ERROR') && errorLine === -1) {
-      errorLine = i;
-      errorMessage = p.slice(2).join('|').trim();
-      failingUnit = stack.length ? stack[stack.length - 1] : null;
+    } else if (ev === 'FATAL_ERROR' || ev === 'EXCEPTION_THROWN' || ev === 'FLOW_ELEMENT_ERROR') {
       // EXCEPTION_THROWN carries the Apex source line as a "[N]" marker right
       // after the event name (Salesforce's own statement-line convention) -
       // when present, it lets the Apex snippet below center on the real spot
       // instead of guessing from the top of the class.
       const lineMatch = p[2] && p[2].match(/^\[(\d+)\]$/);
-      errorSourceLine = lineMatch ? parseInt(lineMatch[1], 10) : null;
+      // Strip that same "[N]|" prefix from the stored message too - FATAL_ERROR
+      // reports the identical exception without it, so leaving it in would
+      // make the two events for one real exception look like different
+      // messages and defeat the dedup below.
+      const rawMessage = p.slice(2).join('|').trim();
+      const message = lineMatch ? rawMessage.replace(/^\[\d+\]\|/, '') : rawMessage;
+      events.push({
+        lineIndex: i,
+        message,
+        unitRaw: stack.length ? stack[stack.length - 1] : null,
+        sourceLine: lineMatch ? parseInt(lineMatch[1], 10) : null,
+      });
     }
   }
 
-  // A window of context around the failure, capped so the request stays small.
+  // Salesforce logs EXCEPTION_THROWN and then FATAL_ERROR for the very same
+  // exception when it's uncaught - collapse those (same message) into one
+  // entry so a single real exception doesn't get listed twice.
+  const seen = new Set();
+  const allErrors = [];
+  for (const e of events) {
+    if (seen.has(e.message)) continue;
+    seen.add(e.message);
+    const cls = classifyUnit(e.unitRaw);
+    allErrors.push({ lineNumber: e.lineIndex + 1, message: e.message, unitName: cls.name, unitType: cls.type });
+  }
+
+  // The primary/first exception still drives the automation badge, source
+  // fetch and Apex snippet centering - multiple exceptions can belong to
+  // different automations entirely, and there's only one "the" automation
+  // this page can act on (source fetch, Auto-Fix). The others are still
+  // fully surfaced below (side panel + sent to the model), just not adopted
+  // as the automation to fetch/act on.
+  const primary = events[0] || null;
+  const errorLine = primary ? primary.lineIndex : -1;
+  const errorMessage = primary ? primary.message : '';
+  const errorSourceLine = primary ? primary.sourceLine : null;
+
+  // A window of context around the primary failure, capped so the request
+  // stays small - see sendToBackend for how allErrors supplements this with
+  // every exception's own message even when its line falls outside this window.
   const from = Math.max(0, errorLine - 60);
   const to = Math.min(lines.length, (errorLine === -1 ? lines.length : errorLine) + 15);
   const excerpt = lines.slice(from, to).join('\n');
 
-  const { name, type } = classifyUnit(failingUnit);
-  return { unitRaw: failingUnit, unitName: name, unitType: type, errorMessage, errorSourceLine, excerpt, found: errorLine !== -1 };
+  const { name, type } = classifyUnit(primary ? primary.unitRaw : null);
+  return { unitRaw: primary ? primary.unitRaw : null, unitName: name, unitType: type, errorMessage, errorSourceLine, excerpt, allErrors, found: errorLine !== -1 };
 }
 
 function classifyUnit(raw) {
@@ -562,8 +596,26 @@ let questionCount = 0;
 async function askInitial() {
   questionCount++;
   addMessage('assistant-thinking');
-  await sendToBackend('What went wrong here, and what should I change to fix it?');
+  const question = analysis.allErrors.length > 1
+    ? `This log has ${analysis.allErrors.length} exceptions - explain each one and what to change to fix or guard against it.`
+    : analysis.found
+      ? 'What went wrong here, and what should I change to fix it?'
+      : "This log's Status is Success - was there an exception it caught internally, and if so what should I change?";
+  await sendToBackend(question);
   updateComposerLimit();
+}
+
+// The excerpt window only surrounds the primary (first) exception - a log
+// with several distinct exceptions would otherwise have the rest silently
+// dropped from what the model ever sees. Prepending a one-line-each summary
+// of every one keeps them all visible regardless of where their line falls.
+function buildLogExcerptForModel() {
+  if (analysis.allErrors.length <= 1) return analysis.excerpt;
+  const summary = analysis.allErrors
+    .map((e, idx) => `${idx + 1}. [line ${e.lineNumber}]${e.unitName ? ` ${e.unitType}: ${e.unitName} -` : ''} ${e.message}`)
+    .join('\n');
+  return `All ${analysis.allErrors.length} exceptions found in this log:\n${summary}\n\n`
+    + `Excerpt around the primary (first) exception:\n${analysis.excerpt}`;
 }
 
 async function sendToBackend(question) {
@@ -573,7 +625,7 @@ async function sendToBackend(question) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        logExcerpt: analysis.excerpt,
+        logExcerpt: buildLogExcerptForModel(),
         automationName: analysis.unitName,
         automationType: analysis.unitType,
         automationSource: automationSource.status === 'ok' ? automationSource.text : '',
@@ -821,7 +873,7 @@ function renderWorkspace() {
         <div>
           <h3>${esc(state.fileName)}</h3>
           <div class="meta">
-            <span>${analysis.found ? 'Failure found' : 'No FATAL_ERROR/EXCEPTION_THROWN/FLOW_ELEMENT_ERROR found'}</span>
+            <span>${analysis.allErrors.length > 1 ? `${analysis.allErrors.length} exceptions found` : analysis.found ? 'Failure found' : 'No FATAL_ERROR/EXCEPTION_THROWN/FLOW_ELEMENT_ERROR found'}</span>
             ${analysis.unitName ? `<span>${esc(analysis.unitType)}: ${esc(analysis.unitName)}</span>` : ''}
           </div>
         </div>
@@ -850,10 +902,16 @@ function renderSide() {
   const side = $('side');
   if (!side) return;
   let html = '';
-  html += `<h4><span class="icon">error</span>Error</h4>`;
-  html += analysis.errorMessage
-    ? `<div class="err-msg">${esc(analysis.errorMessage)}</div>`
-    : `<div class="err-msg">No FATAL_ERROR, EXCEPTION_THROWN, or FLOW_ELEMENT_ERROR line found in this log.</div>`;
+  html += `<h4><span class="icon">error</span>${analysis.allErrors.length > 1 ? `Errors (${analysis.allErrors.length})` : 'Error'}</h4>`;
+  if (!analysis.allErrors.length) {
+    html += `<div class="err-msg">No FATAL_ERROR, EXCEPTION_THROWN, or FLOW_ELEMENT_ERROR line found in this log.</div>`;
+  } else {
+    html += analysis.allErrors.map((e, idx) => `
+      <div class="err-msg">
+        ${analysis.allErrors.length > 1 ? `<div class="err-num">#${idx + 1}${idx === 0 ? ' (primary)' : ''} &mdash; line ${e.lineNumber}${e.unitName ? ` &bull; ${esc(e.unitType)}: ${esc(e.unitName)}` : ''}</div>` : ''}
+        ${esc(e.message)}
+      </div>`).join('');
+  }
 
   html += `<h4><span class="icon">description</span>Log excerpt</h4><pre>${esc(analysis.excerpt || '(empty)')}</pre>`;
 
