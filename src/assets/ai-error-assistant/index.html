@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Error Assistance</title>
+<!-- Same glyph (smart_toy) as the row button that opens this page - src/app/components/debug-item/debug-item.component.html -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A4%96%3C/text%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
 <style>
@@ -641,10 +643,10 @@ function updateComposerLimit() {
 // ======================== AUTO-FIX (hands off to flow-tool) ========================
 // flow-tool is mounted at /flow-tool in this same app (see app.py), so these
 // are same-origin calls straight to its API - no new backend of our own.
-// Wired up for Flow and Apex class (both now support import+refine of an
-// existing org artifact - /api/import/start's `kind` field picks which).
-// Not Apex trigger: flow-tool's retrieve_apex_class() only queries the
-// ApexClass object, so a trigger has nothing to import there yet.
+// Wired up for Flow, Apex class, and Apex trigger - all three now support
+// import+refine of an existing org artifact via /api/import/start's `kind`
+// field ("flow" | "apex" | "trigger").
+const AUTO_FIX_KIND = { Flow: 'flow', ApexClass: 'apex', ApexTrigger: 'trigger' };
 async function flowToolApi(path, body) {
   const res = await fetch(`/flow-tool/${path}`, {
     method: 'POST',
@@ -669,7 +671,7 @@ async function flowToolPoll(path, params) {
 
 async function autoFix() {
   const btn = $('autoFixBtn');
-  const kind = analysis.unitType === 'Flow' ? 'flow' : 'apex';
+  const kind = AUTO_FIX_KIND[analysis.unitType];
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="icon">hourglass_top</span>Importing into flow-tool&hellip;'; }
   try {
     const lastAssistant = [...chatHistory].reverse().find(m => m.role === 'assistant');
@@ -724,8 +726,8 @@ function renderWorkspace() {
           <div class="composer">
             <input id="composerInput" placeholder="Ask a follow-up about this error..." onkeydown="if(event.key==='Enter')submitQuestion()">
             <button id="composerBtn" onclick="submitQuestion()"><span class="icon">send</span>Ask</button>
-            ${(analysis.unitType === 'Flow' || analysis.unitType === 'ApexClass') && state.org ? `
-            <button id="autoFixBtn" class="auto-fix-btn" onclick="autoFix()" title="Import this ${analysis.unitType === 'Flow' ? 'flow' : 'class'} into flow-tool and draft a fix from the conversation so far"><span class="icon">auto_fix_high</span>Auto-Fix</button>
+            ${AUTO_FIX_KIND[analysis.unitType] && state.org ? `
+            <button id="autoFixBtn" class="auto-fix-btn" onclick="autoFix()" title="Import this ${analysis.unitType === 'Flow' ? 'flow' : analysis.unitType === 'ApexClass' ? 'class' : 'trigger'} into flow-tool and draft a fix from the conversation so far"><span class="icon">auto_fix_high</span>Auto-Fix</button>
             ` : ''}
           </div>
         </div>
