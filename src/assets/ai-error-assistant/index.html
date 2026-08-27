@@ -315,10 +315,35 @@ function analyzeLog(text) {
       // messages and defeat the dedup below.
       const rawMessage = p.slice(2).join('|').trim();
       const message = lineMatch ? rawMessage.replace(/^\[\d+\]\|/, '') : rawMessage;
+
+      // CODE_UNIT_STARTED/FINISHED only wrap top-level entry points (a
+      // trigger, an anonymous block, a Flow, a future/queueable/batch
+      // execute) - a plain class calling another class does NOT get its own
+      // CODE_UNIT, so the top of `stack` can be the caller, not the class
+      // that actually threw. FATAL_ERROR is followed by the real Apex stack
+      // trace as plain (non "|") lines - "Class.MyClass.method: line N,
+      // column N" - whose innermost (first) frame is the authoritative
+      // answer and overrides the call-stack guess when present.
+      let stackUnit = null;
+      if (ev === 'FATAL_ERROR') {
+        for (let j = i + 1; j < lines.length; j++) {
+          const traceLine = lines[j].trim();
+          if (traceLine.includes('|')) break; // back to normal structured log lines
+          const m = traceLine.match(/^(Class|Trigger)\.([A-Za-z0-9_]+)/);
+          if (m) { stackUnit = m[1] === 'Trigger' ? `__sfdc_trigger/${m[2]}` : m[2]; break; }
+        }
+      }
+
       events.push({
         lineIndex: i,
         message,
-        unitRaw: stack.length ? stack[stack.length - 1] : null,
+        unitRaw: stackUnit || (stack.length ? stack[stack.length - 1] : null),
+        // Whether unitRaw came from the authoritative stack trace rather than
+        // the call-stack guess - EXCEPTION_THROWN is recorded before the
+        // FATAL_ERROR for the very same exception (see the dedup below), and
+        // without this flag the earlier, less-reliable EXCEPTION_THROWN
+        // attribution would win just by having been pushed first.
+        hasStackUnit: !!stackUnit,
         sourceLine: lineMatch ? parseInt(lineMatch[1], 10) : null,
       });
     }
@@ -330,8 +355,10 @@ function analyzeLog(text) {
   // FLOW_ELEMENT_ERROR (errorMessage plus |-joined element/type/version) then
   // often FATAL_ERROR with just the bare errorMessage. Both pairs share the
   // same leading text before any trailing "|" - use just that as the dedup
-  // key, and keep whichever of the two carries more detail (FLOW_ELEMENT_ERROR's
-  // element info, or the longer of two otherwise-identical messages).
+  // key, and prefer whichever of the two is more trustworthy: the one with a
+  // stack-trace-derived unit wins outright (see hasStackUnit above); failing
+  // that, the longer/more detailed message wins (FLOW_ELEMENT_ERROR's element
+  // info over a bare FATAL_ERROR repeat).
   function coreMessage(msg) {
     const pipeIdx = msg.indexOf('|');
     return pipeIdx === -1 ? msg : msg.slice(0, pipeIdx);
@@ -342,24 +369,32 @@ function analyzeLog(text) {
     const core = coreMessage(e.message);
     if (seen.has(core)) {
       const idx = seen.get(core);
-      if (e.message.length > allErrors[idx].message.length) {
+      const existing = allErrors[idx];
+      const better = (e.hasStackUnit && !existing.hasStackUnit)
+        || (e.hasStackUnit === existing.hasStackUnit && e.message.length > existing.message.length);
+      if (better) {
         const cls = classifyUnit(e.unitRaw);
-        allErrors[idx] = { lineNumber: e.lineIndex + 1, message: e.message, unitName: cls.name, unitType: cls.type };
+        allErrors[idx] = { lineNumber: e.lineIndex + 1, message: e.message, unitName: cls.name, unitType: cls.type, hasStackUnit: e.hasStackUnit };
       }
       continue;
     }
     seen.set(core, allErrors.length);
     const cls = classifyUnit(e.unitRaw);
-    allErrors.push({ lineNumber: e.lineIndex + 1, message: e.message, unitName: cls.name, unitType: cls.type });
+    allErrors.push({ lineNumber: e.lineIndex + 1, message: e.message, unitName: cls.name, unitType: cls.type, hasStackUnit: e.hasStackUnit });
   }
 
-  // The primary/first exception still drives the automation badge, source
-  // fetch and Apex snippet centering - multiple exceptions can belong to
-  // different automations entirely, and there's only one "the" automation
-  // this page can act on (source fetch, Auto-Fix). The others are still
-  // fully surfaced below (side panel + sent to the model), just not adopted
-  // as the automation to fetch/act on.
-  const primary = events[0] || null;
+  // The primary exception (drives the automation badge, source fetch, and
+  // Apex snippet) should be the most trustworthy record of the first
+  // distinct failure, not just the first raw event - prefer one with a
+  // stack-trace-derived unit over an earlier EXCEPTION_THROWN duplicate of
+  // the same exception that only has the call-stack guess.
+  // The primary exception still drives the automation badge, source fetch,
+  // and Apex snippet centering - multiple exceptions can belong to different
+  // automations entirely, and there's only one "the" automation this page
+  // can act on (source fetch, Auto-Fix). The others are still fully
+  // surfaced below (side panel + sent to the model), just not adopted as
+  // the automation to fetch/act on.
+  const primary = events.find(e => e.hasStackUnit) || events[0] || null;
   const errorLine = primary ? primary.lineIndex : -1;
   const errorMessage = primary ? primary.message : '';
   const errorSourceLine = primary ? primary.sourceLine : null;
