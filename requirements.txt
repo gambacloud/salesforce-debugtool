@@ -7,7 +7,7 @@ cachetools
 # Mounted at /flow-tool - see app.py. Pulls in its own LLM deps. Pinned to a
 # commit, not floating on main, so a build actually picks up a new release
 # instead of Heroku's build cache reusing the last clone unchanged.
-git+https://github.com/gambacloud/sfdc-flow-tool.git@641f767d9a8fb29ca0800e2e211efe9829a846b7
+git+https://github.com/gambacloud/sfdc-flow-tool.git@9d3eccbe6a8abda0090d5aeedbbd19169a3547e6
 google-genai
 anthropic
 ollama
