@@ -132,6 +132,7 @@ class ContactRequest(BaseModel):
     email: str = ""
     honeypot: str = ""
     page: str = ""
+    screenshot: str = ""  # base64 PNG, opt-in only (checkbox in the widget)
 
 _contact_rate_cache: TTLCache = TTLCache(maxsize=1000, ttl=600)
 
@@ -143,6 +144,10 @@ async def contact_us(req: ContactRequest, request: Request):
     message = req.message.strip()
     if not message or len(message) > 5000:
         raise HTTPException(status_code=400, detail="Invalid message")
+
+    screenshot = req.screenshot.strip()
+    if screenshot and len(screenshot) > 6_000_000:  # ~4.5MB decoded
+        raise HTTPException(status_code=400, detail="Screenshot too large")
 
     client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
     hits = _contact_rate_cache.get(client_ip, 0)
@@ -172,6 +177,8 @@ async def contact_us(req: ContactRequest, request: Request):
     }
     if reply_to:
         payload["reply_to"] = reply_to
+    if screenshot:
+        payload["attachments"] = [{"filename": "screenshot.png", "content": screenshot}]
 
     resp = await _http_client.post(
         "https://api.resend.com/emails",
