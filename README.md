@@ -15,3 +15,8 @@ Steps to follow if you choosed to deploy your on version:
 1. create a connected app in your org and set the callback URL to your server/localhost path.
 2. modifay the authorization.component.ts file with your on client_id (Consumer Key) connected app
 
+## Related tools
+
+- [sfdc-flow-tool](https://github.com/gambacloud/sfdc-flow-tool) — describe a Salesforce flow in plain language and build it
+- [sfdc-deploy-tool](https://github.com/gambacloud/sfdc-deploy-tool) — build a package and deploy it between orgs
+- [sfdc-log-analyzer](https://github.com/gambacloud/sfdc-log-analyzer) — Salesforce debug log analyzer
