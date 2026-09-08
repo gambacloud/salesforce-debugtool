@@ -7,7 +7,7 @@ This tool is client base and the server is needed only to serve the angular,
 All api calls made from the browser using the angular http library.
 No transmission takes place in the server.
 
-Human-in-the-loop by design: every search, query, and change is triggered and reviewed by you — nothing runs automatically or without your review.
+Human-in-the-loop (HITL) by design: every search, query, and change is triggered and reviewed by you — nothing runs automatically or without your review.
 
 *** In order to enable using the tool in your ORG go to Setup > Cors , click new and add the tool url. (https://salesforce-debugtool.herokuapp.com / your server /  http://localhost:4200 )***
 
