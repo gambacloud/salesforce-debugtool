@@ -190,6 +190,62 @@ async def contact_us(req: ContactRequest, request: Request):
         raise HTTPException(status_code=502, detail="Failed to send message")
     return {"ok": True}
 
+# --- Star rating ---
+# Same Resend relay as the contact form, but for the low-friction star widget
+# (static/rating-widget.js). One click, no message required.
+
+class RatingRequest(BaseModel):
+    stars: int
+    page: str = ""
+    org: str = ""
+    honeypot: str = ""
+
+_rating_rate_cache: TTLCache = TTLCache(maxsize=1000, ttl=600)
+
+@app.post("/api/rating")
+async def rate_us(req: RatingRequest, request: Request):
+    if req.honeypot:
+        return {"ok": True}
+
+    if req.stars < 1 or req.stars > 5:
+        raise HTTPException(status_code=400, detail="Invalid rating")
+
+    client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
+    hits = _rating_rate_cache.get(client_ip, 0)
+    if hits >= 3:
+        raise HTTPException(status_code=429, detail="Too many requests, please try again later")
+    _rating_rate_cache[client_ip] = hits + 1
+
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="Rating is not configured")
+
+    to_email = os.environ.get("CONTACT_TO_EMAIL", "idaneshel@gmail.com")
+    from_email = os.environ.get("CONTACT_FROM_EMAIL", "DebugTool Contact <onboarding@resend.dev>")
+    page = re.sub(r'[\r\n]+', '', req.page.strip())[:200]
+    org = re.sub(r'[\r\n]+', '', req.org.strip())[:200]
+
+    body = f"Rating: {'★' * req.stars}{'☆' * (5 - req.stars)} ({req.stars}/5)\n"
+    body += f"Page: {page}\n" if page else ""
+    body += f"Org: {org}\n" if org else "Org: (not signed in)\n"
+
+    payload = {
+        "from": from_email,
+        "to": [to_email],
+        "subject": f"DebugTool rating: {req.stars}/5" + (f" - {page}" if page else ""),
+        "text": body,
+    }
+
+    resp = await _http_client.post(
+        "https://api.resend.com/emails",
+        json=payload,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+    )
+    if resp.status_code >= 300:
+        print(f"[RATING] Resend error {resp.status_code}: {resp.text}")
+        raise HTTPException(status_code=502, detail="Failed to send rating")
+    return {"ok": True}
+
 # --- Metadata API Proxy ---
 
 class RetrieveRequest(BaseModel):
