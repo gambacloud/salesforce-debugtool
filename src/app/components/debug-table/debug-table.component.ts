@@ -2,7 +2,6 @@
 import { ChangeDetectionStrategy, OnInit,Input,AfterViewInit, Component, ElementRef, ViewChild ,OnChanges,AfterContentChecked,AfterContentInit,EventEmitter} from '@angular/core';
 import { Debug } from '../../models/Debug';
 import { ActionConfig } from '../action-bar/action-bar.component';
-import { GetLogsService } from '../../services/get-logs.service';
 import { SFAPIService } from '../../services/sf-api.service';
 import {FormControl} from '@angular/forms';
 import * as JSZip from 'jszip';

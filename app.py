@@ -117,6 +117,10 @@ def get_config():
     return {
         "clientId": os.environ.get("SF_CLIENT_ID", ""),
         "aiErrorAssistMaxQuestions": max_questions,
+        # Feature flag (Heroku config var): routes the main debug-log app's
+        # Salesforce calls through /api/proxy/* instead of straight from the
+        # browser, so orgs no longer need to whitelist this app under CORS.
+        "sfApiUseProxy": os.environ.get("SF_API_USE_PROXY", "false").lower() == "true",
     }
 
 @app.get("/.well-known/appspecific/com.chrome.devtools.json")
@@ -483,6 +487,141 @@ async def tooling_sobject_get(sobject_type: str, record_id: str, instanceUrl: st
     headers = {"Authorization": f"Bearer {sessionId}", "Accept": "application/json"}
     res = await _http_client.get(
         f"{instance_url}/services/data/v58.0/tooling/sobjects/{sobject_type}/{record_id}",
+        headers=headers,
+    )
+    if res.status_code != 200:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    return res.json()
+
+
+@app.get("/api/proxy/tooling/sobject/{sobject_type}/{record_id}/{field_name}")
+async def tooling_sobject_field_get(sobject_type: str, record_id: str, field_name: str, instanceUrl: str, sessionId: str):
+    """
+    A single field off a Tooling API record, e.g. ApexLog.Body - Salesforce
+    returns these as the raw field content (plain text), not JSON.
+    """
+    instance_url = instanceUrl.rstrip('/')
+    instance_url = instance_url if instance_url.startswith("http") else f"https://{instance_url}"
+    headers = {"Authorization": f"Bearer {sessionId}"}
+    res = await _http_client.get(
+        f"{instance_url}/services/data/v58.0/tooling/sobjects/{sobject_type}/{record_id}/{field_name}",
+        headers=headers,
+    )
+    if res.status_code != 200:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    return Response(content=res.content, media_type="text/plain")
+
+
+class ToolingSobjectWriteRequest(BaseModel):
+    instanceUrl: str
+    sessionId: str
+    apiVersion: str = "58.0"
+    record: dict
+
+
+@app.post("/api/proxy/tooling/sobject/{sobject_type}")
+async def tooling_sobject_create(sobject_type: str, req: ToolingSobjectWriteRequest):
+    instance_url = req.instanceUrl.rstrip('/')
+    instance_url = instance_url if instance_url.startswith("http") else f"https://{instance_url}"
+    headers = {"Authorization": f"Bearer {req.sessionId}", "Content-Type": "application/json"}
+    res = await _http_client.post(
+        f"{instance_url}/services/data/v{req.apiVersion}/tooling/sobjects/{sobject_type}/",
+        json=req.record,
+        headers=headers,
+    )
+    if res.status_code >= 300:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    return Response(content=res.content, media_type="application/json", status_code=res.status_code)
+
+
+@app.patch("/api/proxy/tooling/sobject/{sobject_type}/{record_id}")
+async def tooling_sobject_update(sobject_type: str, record_id: str, req: ToolingSobjectWriteRequest):
+    instance_url = req.instanceUrl.rstrip('/')
+    instance_url = instance_url if instance_url.startswith("http") else f"https://{instance_url}"
+    headers = {"Authorization": f"Bearer {req.sessionId}", "Content-Type": "application/json"}
+    res = await _http_client.patch(
+        f"{instance_url}/services/data/v{req.apiVersion}/tooling/sobjects/{sobject_type}/{record_id}",
+        json=req.record,
+        headers=headers,
+    )
+    if res.status_code >= 300:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    return Response(status_code=res.status_code, content=res.content)
+
+
+@app.delete("/api/proxy/tooling/sobject/{sobject_type}/{record_id}")
+async def tooling_sobject_delete(sobject_type: str, record_id: str, instanceUrl: str, sessionId: str, apiVersion: str = "58.0"):
+    instance_url = instanceUrl.rstrip('/')
+    instance_url = instance_url if instance_url.startswith("http") else f"https://{instance_url}"
+    headers = {"Authorization": f"Bearer {sessionId}"}
+    res = await _http_client.delete(
+        f"{instance_url}/services/data/v{apiVersion}/tooling/sobjects/{sobject_type}/{record_id}",
+        headers=headers,
+    )
+    if res.status_code >= 300:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    return Response(status_code=res.status_code, content=res.content)
+
+
+@app.delete("/api/proxy/sobjects")
+async def sobjects_collection_delete(instanceUrl: str, sessionId: str, ids: str, apiVersion: str = "58.0"):
+    """Bulk delete via the SObject Collections endpoint, e.g. deleting several ApexLogs at once."""
+    instance_url = instanceUrl.rstrip('/')
+    instance_url = instance_url if instance_url.startswith("http") else f"https://{instance_url}"
+    headers = {"Authorization": f"Bearer {sessionId}"}
+    res = await _http_client.delete(
+        f"{instance_url}/services/data/v{apiVersion}/composite/sobjects",
+        params={"ids": ids, "allOrNone": "false"},
+        headers=headers,
+    )
+    if res.status_code >= 300:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    return Response(status_code=res.status_code, content=res.content, media_type="application/json")
+
+
+@app.get("/api/proxy/sobject/{sobject_type}/{record_id}")
+async def sobject_get(sobject_type: str, record_id: str, instanceUrl: str, sessionId: str, apiVersion: str = "58.0"):
+    instance_url = instanceUrl.rstrip('/')
+    instance_url = instance_url if instance_url.startswith("http") else f"https://{instance_url}"
+    headers = {"Authorization": f"Bearer {sessionId}", "Accept": "application/json"}
+    res = await _http_client.get(
+        f"{instance_url}/services/data/v{apiVersion}/sobjects/{sobject_type}/{record_id}/",
+        headers=headers,
+    )
+    if res.status_code != 200:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    return res.json()
+
+
+class SobjectWriteRequest(BaseModel):
+    instanceUrl: str
+    sessionId: str
+    apiVersion: str = "58.0"
+    record: dict
+
+
+@app.patch("/api/proxy/sobject/{sobject_type}/{record_id}")
+async def sobject_update(sobject_type: str, record_id: str, req: SobjectWriteRequest):
+    instance_url = req.instanceUrl.rstrip('/')
+    instance_url = instance_url if instance_url.startswith("http") else f"https://{instance_url}"
+    headers = {"Authorization": f"Bearer {req.sessionId}", "Content-Type": "application/json"}
+    res = await _http_client.patch(
+        f"{instance_url}/services/data/v{req.apiVersion}/sobjects/{sobject_type}/{record_id}/",
+        json=req.record,
+        headers=headers,
+    )
+    if res.status_code >= 300:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    return Response(status_code=res.status_code, content=res.content)
+
+
+@app.get("/api/proxy/chatter/me")
+async def chatter_me(instanceUrl: str, sessionId: str, apiVersion: str = "58.0"):
+    instance_url = instanceUrl.rstrip('/')
+    instance_url = instance_url if instance_url.startswith("http") else f"https://{instance_url}"
+    headers = {"Authorization": f"Bearer {sessionId}", "Accept": "application/json"}
+    res = await _http_client.get(
+        f"{instance_url}/services/data/v{apiVersion}/chatter/users/me",
         headers=headers,
     )
     if res.status_code != 200:

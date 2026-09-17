@@ -1,6 +1,5 @@
 import { Component, OnInit,Input ,OnDestroy,Inject,ChangeDetectionStrategy,EventEmitter,Output} from '@angular/core';
 import { Debug } from '../../models/Debug';
-import { GetLogsService } from '../../services/get-logs.service';
 import { SFAPIService } from '../../services/sf-api.service';
 import {MatDialog, MAT_DIALOG_DATA,MatDialogConfig} from '@angular/material/dialog';
 import {FixedSizeVirtualScrollStrategy, VIRTUAL_SCROLL_STRATEGY} from '@angular/cdk/scrolling';
