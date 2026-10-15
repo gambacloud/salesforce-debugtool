@@ -11,3 +11,7 @@ git+https://github.com/gambacloud/sfdc-flow-tool.git@d6cc839f9d60fc8aaf9d806586c
 google-genai
 anthropic
 ollama
+
+# Mounted at /cert-manager - see app.py. Certificate scan + triage for a connected Salesforce org.
+# Pinned to a commit, like flow-tool above.
+git+https://github.com/gambacloud/sfdcautocert.git@cc38a58379895e8adb59ce977712cd901c9563d6

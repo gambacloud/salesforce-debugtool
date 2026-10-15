@@ -54,6 +54,18 @@ def flow_tool_trailing_slash():
     # redirect, which the Angular catch-all below pre-empts.
     return RedirectResponse(url="/flow-tool/")
 
+# Cert Manager - scan + triage of the certificates / endpoints a Salesforce org depends on (own repo:
+# gambacloud/sfdcautocert). Included as a router rather than mounted: the page itself is the OAuth
+# redirect target, so it must answer at exactly /cert-manager (register that as a Callback URL on the
+# Connected App). It uses the same SF_CLIENT_ID as the rest of the app and makes all Salesforce calls
+# server-side. Guarded so the app still boots where the package is not installed.
+try:
+    from sfdcautocert.api import create_router as _cert_manager_router  # noqa: E402
+
+    app.include_router(_cert_manager_router(base="/cert-manager"), prefix="/cert-manager")
+except ImportError:
+    pass
+
 # Job search tool - deployed as its own separate Heroku app/dyno, so this is
 # a plain external redirect rather than an in-process mount like flow-tool.
 JOB_SEARCH_TOOL_URL = "https://job-search-tool-ide-569997069814.herokuapp.com/"
