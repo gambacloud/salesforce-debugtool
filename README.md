@@ -19,6 +19,6 @@ Steps to follow if you choosed to deploy your on version:
 
 ## Related tools
 
-- [sfdc-flow-tool](https://github.com/gambacloud/sfdc-flow-tool) — describe a Salesforce flow in plain language and build it
+- [sfdc-flow-tool](https://github.com/gambacloud/sfdc-flow-tool) — describe what you need in plain language (flows, Apex, objects, Lightning components, AI prompts, Agentforce agents, a customer portal) and deploy it
 - [sfdc-deploy-tool](https://github.com/gambacloud/sfdc-deploy-tool) — build a package and deploy it between orgs
 - [sfdc-log-analyzer](https://github.com/gambacloud/sfdc-log-analyzer) — Salesforce debug log analyzer
