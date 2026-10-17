@@ -14,4 +14,4 @@ ollama
 
 # Mounted at /cert-manager - see app.py. Certificate scan + triage for a connected Salesforce org.
 # Pinned to a commit, like flow-tool above.
-git+https://github.com/gambacloud/sfdcautocert.git@cc38a58379895e8adb59ce977712cd901c9563d6
+git+https://github.com/gambacloud/sfdcautocert.git@a9a160c4d95e802059017c7cf731e92a0070b4b7
