@@ -16,6 +16,9 @@
     <loc>https://salesforce-debugtool.herokuapp.com/access-tool</loc>
   </url>
   <url>
+    <loc>https://salesforce-debugtool.herokuapp.com/cert-manager</loc>
+  </url>
+  <url>
     <loc>https://salesforce-debugtool.herokuapp.com/flow-tool/</loc>
   </url>
 </urlset>
